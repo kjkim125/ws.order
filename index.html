@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>주문 조회</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root{
+    --ink:#1b2430;
+    --ink-soft:#5b6674;
+    --line:#e2e6eb;
+    --bg:#f6f7f9;
+    --panel:#ffffff;
+    --accent:#2f5d50;
+    --accent-soft:#eaf1ee;
+    --danger:#b3452c;
+    --radius:10px;
+    font-family:"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+  header{margin-bottom:28px;}
+  header .eyebrow{
+    font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;margin-bottom:6px;
+  }
+  h1{font-size:26px;margin:0 0 4px;font-weight:800;}
+  header p{margin:0;color:var(--ink-soft);font-size:14px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px;
+    margin-bottom:20px;
+  }
+
+  .search-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .search-row input[type="text"]{
+    flex:1 1 260px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:15px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  .search-row input[type="text"]:focus{border-color:var(--accent);}
+  .search-row button{
+    padding:12px 20px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:opacity .15s;
+  }
+  .search-row button:hover{opacity:.9;}
+  .search-row button:disabled{opacity:.5;cursor:default;}
+
+  .meta{
+    display:flex;justify-content:space-between;align-items:center;
+    margin:14px 0 8px;font-size:13px;color:var(--ink-soft);
+  }
+  .meta .count strong{color:var(--ink);}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  thead th{
+    background:var(--accent-soft);
+    color:var(--accent);
+    text-align:left;
+    font-size:12px;
+    letter-spacing:.03em;
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+    vertical-align:top;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfc;}
+
+  .state{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:14px;
+    background:var(--panel);
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+  }
+  .state.error{color:var(--danger);border-color:#e7c9bd;background:#fdf5f2;}
+
+  .table-scroll{overflow-x:auto;}
+
+  footer{margin-top:30px;font-size:12px;color:var(--ink-soft);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+    <div>
+      <div class="eyebrow">Internal Tool</div>
+      <h1>주문 조회</h1>
+      <p>검색어를 입력하면 일치하는 주문 데이터를 보여줍니다. · <a href="upload.html" style="color:var(--accent);font-weight:600;">데이터 업로드로 이동</a></p>
+    </div>
+    <div id="userBar" style="display:flex;align-items:center;gap:10px;margin-top:4px;"></div>
+  </header>
+
+  <div class="panel">
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="예: 주문번호, 고객명, 상품명 등으로 검색" />
+      <button id="searchBtn">조회</button>
+    </div>
+  </div>
+
+  <div id="metaRow" class="meta" style="display:none;">
+    <div class="count">검색 결과 <strong id="resultCount">0</strong>건</div>
+  </div>
+
+  <div id="resultArea">
+    <div class="state">검색어를 입력하고 조회 버튼을 눌러주세요.</div>
+  </div>
+
+  <footer>Powered by Supabase</footer>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — SUPABASE_URL / KEY는 config.js에서 관리합니다.
+   ========================================================= */
+// 조회할 테이블명 (Supabase Table Editor에서 만든 이름)
+const TABLE_NAME = "orders";
+
+// 검색 대상 컬럼: B 주문번호(사방넷), C 주문번호(쇼핑몰), E 수령인,
+// G 운송장번호, H/I 받는분연락처, Z/AA 주문자연락처
+const SEARCH_COLUMNS = [
+  "order_no_sabangnet",
+  "order_no_mall",
+  "receiver_name",
+  "tracking_no",
+  "receiver_phone",
+  "receiver_phone2",
+  "orderer_phone1",
+  "orderer_phone2",
+];
+
+// 결과 테이블에 보여줄 컬럼: A B C D E F G H L M N T V
+const DISPLAY_COLUMNS = [
+  "shipped_date",
+  "order_no_sabangnet",
+  "order_no_mall",
+  "mall",
+  "receiver_name",
+  "courier",
+  "tracking_no",
+  "receiver_phone",
+  "product_name",
+  "quantity",
+  "payment_amount",
+  "product_color_code",
+  "option_collected",
+];
+
+// 결과 테이블 헤더에 보여줄 한글 라벨
+const LABELS = {
+  shipped_date: "출고일",
+  order_no_sabangnet: "주문번호(사방넷)",
+  order_no_mall: "주문번호(쇼핑몰)",
+  mall: "쇼핑몰",
+  receiver_name: "수령인",
+  courier: "택배사",
+  tracking_no: "운송장번호",
+  receiver_phone: "받는분연락처",
+  product_name: "상품명",
+  quantity: "수량",
+  payment_amount: "결제금액",
+  product_color_code: "상품컬러코드",
+  option_collected: "옵션(수집)",
+};
+
+// 한 번에 가져올 최대 결과 수
+const MAX_RESULTS = 200;
+/* ========================================================= */
+
+const searchInput = document.getElementById("searchInput");
+const searchBtn = document.getElementById("searchBtn");
+const resultArea = document.getElementById("resultArea");
+const metaRow = document.getElementById("metaRow");
+const resultCount = document.getElementById("resultCount");
+
+(async () => {
+  const session = await requireAuth();
+  if (!session) return; // requireAuth already redirects to login.html
+  renderUserBar(session, document.getElementById("userBar"));
+})();
+
+function setState(html, isError=false){
+  metaRow.style.display = "none";
+  resultArea.innerHTML = `<div class="state ${isError ? "error" : ""}">${html}</div>`;
+}
+
+function renderTable(rows){
+  if(!rows.length){
+    setState("일치하는 주문이 없습니다.");
+    return;
+  }
+  const columns = DISPLAY_COLUMNS.length ? DISPLAY_COLUMNS : Object.keys(rows[0]);
+
+  const thead = `<thead><tr>${columns.map(c => `<th>${escapeHtml(LABELS[c] || c)}</th>`).join("")}</tr></thead>`;
+  const tbody = `<tbody>${rows.map(row => `<tr>${
+    columns.map(c => `<td>${escapeHtml(row[c] ?? "")}</td>`).join("")
+  }</tr>`).join("")}</tbody>`;
+
+  resultArea.innerHTML = `<div class="table-scroll"><table>${thead}${tbody}</table></div>`;
+
+  metaRow.style.display = "flex";
+  resultCount.textContent = rows.length;
+}
+
+function escapeHtml(v){
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function runSearch(){
+  const keyword = searchInput.value.trim();
+  if(!keyword){
+    setState("검색어를 입력하고 조회 버튼을 눌러주세요.");
+    return;
+  }
+
+  searchBtn.disabled = true;
+  setState("조회 중...");
+
+  try{
+    const orFilter = SEARCH_COLUMNS
+      .map(col => `${col}.ilike.%${keyword}%`)
+      .join(",");
+
+    const { data, error } = await supabaseClient
+      .from(TABLE_NAME)
+      .select("*")
+      .or(orFilter)
+      .limit(MAX_RESULTS);
+
+    if(error) throw error;
+
+    renderTable(data || []);
+  }catch(err){
+    console.error(err);
+    setState(`조회 중 오류가 발생했습니다: ${escapeHtml(err.message || err)}`, true);
+  }finally{
+    searchBtn.disabled = false;
+  }
+}
+
+searchBtn.addEventListener("click", runSearch);
+searchInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter") runSearch();
+});
+</script>
+</body>
+</html>
