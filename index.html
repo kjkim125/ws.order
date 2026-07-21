@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>주문 조회 · 출고기간 필터</title>
+<title>주문 조회 v2.0</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="config.js"></script>
@@ -487,8 +487,9 @@
 <div class="wrap">
   <header class="top-header">
     <div class="header-title">
-      <div class="eyebrow">White sands</div>
-      <h1>발주서 조회</h1>
+      <div class="eyebrow">ORDER MANAGER · v2.0</div>
+      <h1>주문 조회</h1>
+      <p>검색어를 입력하면 일치하는 주문 데이터를 보여줍니다.</p>
     </div>
     <div id="userBar" class="user-area"></div>
   </header>
@@ -532,8 +533,8 @@
     <div class="search-row">
       <input type="text" id="searchInput" placeholder="예: 주문번호, 수령인, 운송장번호, 연락처 등으로 검색" />
       <button id="searchBtn">조회</button>
-      <button id="toggleUploadBtn" class="ghost" type="button">업로드</button>
-      <button id="toggleHistoryBtn" class="ghost" type="button">DB</button>
+      <button id="toggleUploadBtn" class="ghost" type="button">데이터 업로드</button>
+      <button id="toggleHistoryBtn" class="ghost" type="button">업로드 기록</button>
     </div>
   </div>
 
