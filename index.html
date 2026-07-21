@@ -306,6 +306,39 @@
   }
   .progress{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:14px;display:none;}
   .progress .bar{height:100%;width:0%;background:var(--accent);transition:width .2s;}
+
+  .upload-validation-error{
+    display:none;
+    margin-top:14px;
+    padding:14px;
+    border-radius:10px;
+    border:1px solid #e7c9bd;
+    background:#fdf5f2;
+    color:var(--danger);
+  }
+  .upload-validation-error h3{
+    margin:0 0 8px;
+    font-size:14px;
+  }
+  .upload-validation-error p{
+    margin:0 0 10px;
+    font-size:13px;
+    line-height:1.45;
+  }
+  .upload-validation-error .error-row-list{
+    max-height:180px;
+    overflow:auto;
+    padding:10px;
+    border-radius:8px;
+    background:#fff;
+    border:1px solid #efd7cf;
+    font-size:12px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-break:break-word;
+    font-family:"SFMono-Regular",Menlo,Consolas,monospace;
+  }
+
 </style>
 </head>
 <body>
@@ -366,7 +399,7 @@
   <!-- 업로드 패널 (버튼 클릭 시 노출) -->
   <div class="panel" id="uploadPanel">
     <h2 style="font-size:16px;margin:0 0 4px;">주문 데이터 업로드</h2>
-    <p style="margin:0 0 16px;color:var(--ink-soft);font-size:13px;">발주서 형식의 엑셀 파일(.xlsx)을 업로드하면 DB에 저장됩니다.</p>
+    <p style="margin:0 0 16px;color:var(--ink-soft);font-size:13px;">발주서 형식의 엑셀 파일(.xlsx)을 업로드하면 DB에 저장됩니다. 1행은 머리글로 인식하고 실제 데이터는 2행부터 검사합니다.</p>
 
     <div class="drop" id="dropZone">
       <div>엑셀 파일(.xlsx)을 이곳에 드래그하거나 클릭해서 선택하세요</div>
@@ -385,6 +418,7 @@
 
     <div class="progress" id="progressWrap"><div class="bar" id="progressBar"></div></div>
     <div class="log" id="log"></div>
+    <div id="uploadValidationError" class="upload-validation-error" role="alert"></div>
   </div>
 
   <div id="metaRow" class="meta" style="display:none;">
@@ -1346,6 +1380,7 @@ const replaceMode = document.getElementById("replaceMode");
 const logEl = document.getElementById("log");
 const progressWrap = document.getElementById("progressWrap");
 const progressBar = document.getElementById("progressBar");
+const uploadValidationError = document.getElementById("uploadValidationError");
 
 let selectedFile = null;
 let selectedFileBuffer = null;
@@ -1398,10 +1433,28 @@ function setProgress(pct){
   progressBar.style.width = pct + "%";
 }
 
+function clearUploadValidationError(){
+  uploadValidationError.style.display = "none";
+  uploadValidationError.innerHTML = "";
+}
+
+function showUploadValidationError(title, message, rowListText = ""){
+  const rowListHtml = rowListText
+    ? `<div class="error-row-list">${escapeHtml(rowListText)}</div>`
+    : "";
+  uploadValidationError.innerHTML = `
+    <h3>${escapeHtml(title)}</h3>
+    <p>${escapeHtml(message).replace(/\n/g, '<br />')}</p>
+    ${rowListHtml}
+  `;
+  uploadValidationError.style.display = "block";
+}
+
 uploadBtn.addEventListener("click", async () => {
   if (!selectedFile) return;
   uploadBtn.disabled = true;
   logEl.textContent = "";
+  clearUploadValidationError();
   setProgress(0);
 
   try{
