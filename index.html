@@ -55,14 +55,24 @@
     margin-bottom:20px;
   }
 
-  .latest-upload{
+  .top-header{
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:space-between;
-    gap:14px;
-    flex-wrap:wrap;
+    gap:24px;
+    margin-bottom:18px;
+  }
+  .header-title{min-width:250px;}
+  .user-area{display:flex;align-items:center;gap:10px;justify-content:flex-end;}
+
+  /* 최근 업로드 정보와 조회 필터를 한 줄에 배치 */
+  .latest-upload{
+    display:grid;
+    grid-template-columns:minmax(260px,1fr) minmax(650px,auto);
+    align-items:center;
+    gap:18px;
     margin:-10px 0 14px;
-    padding:11px 14px;
+    padding:10px 12px 10px 14px;
     border:1px solid #cdded7;
     border-radius:9px;
     background:var(--accent-soft);
@@ -82,70 +92,62 @@
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
-    max-width:min(720px, 70vw);
+    max-width:100%;
   }
-  .latest-upload-meta{color:var(--ink-soft);white-space:nowrap;}
+  .latest-upload-meta{color:var(--ink-soft);white-space:nowrap;margin-left:auto;}
   .latest-upload.error{
     background:#fdf5f2;
     border-color:#e7c9bd;
     color:var(--danger);
   }
 
-  .top-header{
-    display:grid;
-    grid-template-columns:minmax(250px, auto) minmax(560px, 1fr) auto;
-    align-items:center;
-    gap:24px;
-    margin-bottom:18px;
-  }
-  .header-title{min-width:250px;}
   .header-filter{
     min-width:0;
-    padding:10px 12px;
-    border:1px solid var(--line);
-    border-radius:10px;
-    background:var(--panel);
+    padding:0;
+    border:0;
+    background:transparent;
   }
   .header-filter-row{
     display:flex;
     align-items:flex-end;
-    gap:8px;
+    justify-content:flex-end;
+    gap:7px;
     min-width:0;
   }
   .header-filter-field{
     display:flex;
     flex-direction:column;
-    gap:5px;
+    gap:4px;
     min-width:0;
   }
-  .header-filter-field.date-range-field{flex:0 0 330px;}
-  .header-filter-field.mall-field{flex:1 1 210px;}
+  .header-filter-field.date-range-field{flex:0 0 300px;}
+  .header-filter-field.mall-field{flex:0 0 165px;}
   .date-range-inputs{
     display:grid;
-    grid-template-columns:minmax(135px,1fr) auto minmax(135px,1fr);
+    grid-template-columns:minmax(126px,1fr) auto minmax(126px,1fr);
     align-items:center;
-    gap:6px;
+    gap:5px;
   }
   .date-range-inputs .separator{
     color:var(--ink-soft);
-    font-size:13px;
+    font-size:12px;
     text-align:center;
   }
   .header-filter-field label{
-    color:var(--ink-soft);
-    font-size:11px;
-    font-weight:700;
+    color:var(--accent);
+    font-size:10px;
+    font-weight:800;
   }
   .header-filter input[type="date"],
   .header-filter select{
     width:100%;
-    height:39px;
-    padding:8px 10px;
-    border:1px solid var(--line);
+    height:34px;
+    padding:6px 8px;
+    border:1px solid #cdded7;
     border-radius:7px;
     background:#fff;
     color:var(--ink);
-    font-size:13px;
+    font-size:12px;
     outline:none;
   }
   .header-filter input[type="date"]:focus,
@@ -155,34 +157,39 @@
   .header-filter-actions{
     display:flex;
     align-items:center;
-    gap:6px;
+    gap:5px;
     flex:0 0 auto;
   }
   .header-filter-actions button{
-    min-height:39px;
-    padding:8px 12px;
-    font-size:13px;
+    min-height:34px;
+    padding:6px 10px;
+    font-size:12px;
     white-space:nowrap;
   }
   .filter-meta{
-    min-height:16px;
-    margin-top:6px;
+    min-height:14px;
+    margin-top:4px;
     color:var(--ink-soft);
-    font-size:11px;
-    line-height:1.35;
+    font-size:10px;
+    line-height:1.3;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
+    text-align:right;
   }
   .filter-meta.error{color:var(--danger);}
-  .user-area{display:flex;align-items:center;gap:10px;justify-self:end;}
+
   @media (max-width:1180px){
-    .top-header{grid-template-columns:1fr auto;}
-    .header-filter{grid-column:1 / -1;grid-row:2;}
+    .latest-upload{grid-template-columns:1fr;align-items:stretch;}
+    .header-filter-row{justify-content:flex-start;}
+    .filter-meta{text-align:left;}
   }
   @media (max-width:720px){
-    .top-header{display:flex;flex-direction:column;align-items:stretch;gap:12px;}
+    .top-header{flex-direction:column;align-items:stretch;gap:12px;}
     .user-area{justify-content:flex-end;}
+    .latest-upload{padding:12px;}
+    .latest-upload-main{flex-wrap:wrap;}
+    .latest-upload-meta{width:100%;margin-left:0;}
     .header-filter-row{align-items:stretch;flex-wrap:wrap;}
     .header-filter-field.date-range-field,
     .header-filter-field.mall-field{flex:1 1 100%;}
@@ -349,6 +356,15 @@
       <h1>주문 조회</h1>
       <p>검색어를 입력하면 일치하는 주문 데이터를 보여줍니다.</p>
     </div>
+    <div id="userBar" class="user-area"></div>
+  </header>
+
+  <div id="latestUpload" class="latest-upload" role="status" aria-live="polite">
+    <div class="latest-upload-main">
+      <span class="latest-upload-label">최근 업로드</span>
+      <span id="latestUploadFile" class="latest-upload-file">확인 중...</span>
+      <span id="latestUploadMeta" class="latest-upload-meta"></span>
+    </div>
 
     <div class="header-filter" aria-label="주문 상세 필터">
       <div class="header-filter-row">
@@ -369,23 +385,13 @@
         </div>
 
         <div class="header-filter-actions">
-          <button id="applyFilterBtn" type="button">필터 적용</button>
+          <button id="applyFilterBtn" type="button">조회</button>
           <button id="resetFilterBtn" class="ghost" type="button">초기화</button>
           <button id="refreshFilterOptionsBtn" class="ghost" type="button" title="필터 조건 새로고침" aria-label="필터 조건 새로고침">↻</button>
         </div>
       </div>
       <div id="filterMeta" class="filter-meta" role="status" aria-live="polite"></div>
     </div>
-
-    <div id="userBar" class="user-area"></div>
-  </header>
-
-  <div id="latestUpload" class="latest-upload" role="status" aria-live="polite">
-    <div class="latest-upload-main">
-      <span class="latest-upload-label">최근 업로드</span>
-      <span id="latestUploadFile" class="latest-upload-file">확인 중...</span>
-    </div>
-    <span id="latestUploadMeta" class="latest-upload-meta"></span>
   </div>
 
   <div class="panel">
@@ -784,10 +790,10 @@ function getDateRange(criteria){
 function applyCriteriaToQuery(query, criteria){
   const range = getDateRange(criteria);
   if(range.start){
-    query = query.gte("ship_date", range.start);
+    query = query.gte("shipped_date", range.start);
   }
   if(range.end){
-    query = query.lte("ship_date", range.end);
+    query = query.lte("shipped_date", range.end);
   }
   if(criteria.mall){
     query = query.eq("mall", criteria.mall);
