@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>주문 조회</title>
+<title>발주서 관리</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="config.js"></script>
@@ -118,8 +118,19 @@
     gap:5px;
     min-width:0;
   }
-  .header-filter-field.date-field{flex:0 0 170px;}
+  .header-filter-field.date-range-field{flex:0 0 330px;}
   .header-filter-field.mall-field{flex:1 1 210px;}
+  .date-range-inputs{
+    display:grid;
+    grid-template-columns:minmax(135px,1fr) auto minmax(135px,1fr);
+    align-items:center;
+    gap:6px;
+  }
+  .date-range-inputs .separator{
+    color:var(--ink-soft);
+    font-size:13px;
+    text-align:center;
+  }
   .header-filter-field label{
     color:var(--ink-soft);
     font-size:11px;
@@ -173,8 +184,9 @@
     .top-header{display:flex;flex-direction:column;align-items:stretch;gap:12px;}
     .user-area{justify-content:flex-end;}
     .header-filter-row{align-items:stretch;flex-wrap:wrap;}
-    .header-filter-field.date-field,
-    .header-filter-field.mall-field{flex:1 1 180px;}
+    .header-filter-field.date-range-field,
+    .header-filter-field.mall-field{flex:1 1 100%;}
+    .date-range-inputs{grid-template-columns:1fr auto 1fr;}
     .header-filter-actions{flex:1 1 100%;}
     .header-filter-actions button{flex:1 1 auto;}
   }
@@ -307,9 +319,13 @@
 
     <div class="header-filter" aria-label="주문 상세 필터">
       <div class="header-filter-row">
-        <div class="header-filter-field date-field">
-          <label for="filterDate">출고일</label>
-          <input id="filterDate" type="date" aria-label="출고일 선택" disabled />
+        <div class="header-filter-field date-range-field">
+          <label>출고일</label>
+          <div class="date-range-inputs">
+            <input id="filterStartDate" type="date" aria-label="출고 시작일 선택" disabled />
+            <span class="separator">~</span>
+            <input id="filterEndDate" type="date" aria-label="출고 종료일 선택" disabled />
+          </div>
         </div>
 
         <div class="header-filter-field mall-field">
@@ -322,7 +338,6 @@
         <div class="header-filter-actions">
           <button id="applyFilterBtn" type="button">필터 적용</button>
           <button id="resetFilterBtn" class="ghost" type="button">초기화</button>
-          <button id="downloadFilteredBtn" class="ghost" type="button" disabled>필터 엑셀</button>
           <button id="refreshFilterOptionsBtn" class="ghost" type="button" title="필터 조건 새로고침" aria-label="필터 조건 새로고침">↻</button>
         </div>
       </div>
@@ -377,9 +392,10 @@
       검색 결과 <strong id="resultCount">0</strong>건 <span id="resultLimitNote"></span> · 선택 <strong id="selectedCount">0</strong>건
     </div>
     <div class="selection-tools">
-      <span class="hint">체크 후 Ctrl/Cmd + C로 원본 전체 행 복사</span>
-      <button id="copySelectedBtn" class="ghost compact" type="button" disabled>선택 행 전체 복사</button>
-      <button id="downloadSelectedBtn" class="ghost compact" type="button" disabled>선택 행 엑셀 내려받기</button>
+      <span class="hint">체크한 행은 Ctrl/Cmd + C로 원본 전체 행 복사</span>
+      <button id="copySelectedBtn" class="ghost compact" type="button" disabled>원본 전체 행 복사</button>
+      <button id="downloadSelectedBtn" class="ghost compact" type="button" disabled>선택 행 엑셀 다운로드</button>
+      <button id="downloadFilteredBtn" class="ghost compact" type="button" disabled title="현재 조회 조건에 맞는 전체 결과를 다운로드합니다. 화면 표시 200건 제한과 무관합니다.">전체 결과 엑셀 다운로드</button>
     </div>
   </div>
 
@@ -614,7 +630,8 @@ async function loadLatestUpload(){
 }
 
 /* ---------------- 상단 상세 조건 필터 ---------------- */
-const filterDate = document.getElementById("filterDate");
+const filterStartDate = document.getElementById("filterStartDate");
+const filterEndDate = document.getElementById("filterEndDate");
 const filterMall = document.getElementById("filterMall");
 const applyFilterBtn = document.getElementById("applyFilterBtn");
 const resetFilterBtn = document.getElementById("resetFilterBtn");
@@ -650,15 +667,18 @@ function populateDatePicker(){
     .filter(Boolean)
     .sort();
 
-  filterDate.disabled = dates.length === 0;
-  if(dates.length){
-    filterDate.min = dates[0];
-    filterDate.max = dates[dates.length - 1];
-  }else{
-    filterDate.value = "";
-    filterDate.removeAttribute("min");
-    filterDate.removeAttribute("max");
-  }
+  const disabled = dates.length === 0;
+  [filterStartDate, filterEndDate].forEach(input => {
+    input.disabled = disabled;
+    if(dates.length){
+      input.min = dates[0];
+      input.max = dates[dates.length - 1];
+    }else{
+      input.value = "";
+      input.removeAttribute("min");
+      input.removeAttribute("max");
+    }
+  });
 }
 
 function populateMallOptions(){
@@ -677,7 +697,7 @@ function populateMallOptions(){
 }
 
 async function loadFilterOptions(){
-  [filterDate, filterMall].forEach(el => el.disabled = true);
+  [filterStartDate, filterEndDate, filterMall].forEach(el => el.disabled = true);
   refreshFilterOptionsBtn.disabled = true;
   downloadFilteredBtn.disabled = true;
   setFilterMeta("필터 조건을 불러오는 중입니다.");
@@ -696,7 +716,7 @@ async function loadFilterOptions(){
 
     populateDatePicker();
     populateMallOptions();
-    setFilterMeta(`출고일과 쇼핑몰을 선택해 조회할 수 있습니다.`);
+    setFilterMeta(`출고 기간과 쇼핑몰을 선택해 조회할 수 있습니다.`);
   }catch(err){
     console.error("필터 조건 조회 오류:", err);
     setFilterMeta(`필터 조건 조회 오류: ${err.message || err}`, true);
@@ -708,30 +728,32 @@ async function loadFilterOptions(){
 function getFilterCriteria(keyword=""){
   return {
     keyword: String(keyword || "").trim(),
-    date: filterDate.value,
+    startDate: filterStartDate.value,
+    endDate: filterEndDate.value,
     mall: filterMall.value,
   };
 }
 
 function hasAnyCriteria(criteria){
-  return Boolean(criteria.keyword || criteria.date || criteria.mall);
+  return Boolean(criteria.keyword || criteria.startDate || criteria.endDate || criteria.mall);
 }
 
 function getDateRange(criteria){
-  if(!criteria.date) return null;
-  const [year, month, day] = criteria.date.split("-").map(Number);
-  const start = new Date(Date.UTC(year, month - 1, day));
-  const end = new Date(Date.UTC(year, month - 1, day + 1));
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  };
+  let start = criteria.startDate || "";
+  let end = criteria.endDate || "";
+  if(start && end && start > end){
+    [start, end] = [end, start];
+  }
+  return { start, end };
 }
 
 function applyCriteriaToQuery(query, criteria){
   const range = getDateRange(criteria);
-  if(range){
-    query = query.gte("ship_date", range.start).lt("ship_date", range.end);
+  if(range.start){
+    query = query.gte("ship_date", range.start);
+  }
+  if(range.end){
+    query = query.lte("ship_date", range.end);
   }
   if(criteria.mall){
     query = query.eq("mall", criteria.mall);
@@ -751,7 +773,18 @@ function formatKoreanDate(dateValue){
 
 function describeCriteria(criteria){
   const parts = [];
-  if(criteria.date) parts.push(formatKoreanDate(criteria.date));
+  const range = getDateRange(criteria);
+  if(range.start && range.end){
+    parts.push(
+      range.start === range.end
+        ? formatKoreanDate(range.start)
+        : `${formatKoreanDate(range.start)} ~ ${formatKoreanDate(range.end)}`
+    );
+  }else if(range.start){
+    parts.push(`${formatKoreanDate(range.start)} 이후`);
+  }else if(range.end){
+    parts.push(`${formatKoreanDate(range.end)} 이전`);
+  }
   if(criteria.mall) parts.push(`쇼핑몰 ${criteria.mall}`);
   if(criteria.keyword) parts.push(`검색어 “${criteria.keyword}”`);
   return parts.join(" · ") || "전체 데이터";
@@ -766,12 +799,14 @@ function markCriteriaDirty(){
   }
 }
 
-filterDate.addEventListener("change", markCriteriaDirty);
+filterStartDate.addEventListener("change", markCriteriaDirty);
+filterEndDate.addEventListener("change", markCriteriaDirty);
 filterMall.addEventListener("change", markCriteriaDirty);
 refreshFilterOptionsBtn.addEventListener("click", loadFilterOptions);
 
 function resetDetailedFilters(){
-  filterDate.value = "";
+  filterStartDate.value = "";
+  filterEndDate.value = "";
   filterMall.value = "";
   const search = document.getElementById("searchInput");
   if(search) search.value = "";
@@ -814,7 +849,8 @@ async function fetchOriginalRowsByCriteria(criteria){
 
 function makeFilteredDownloadFilename(criteria){
   const parts = [];
-  if(criteria.date) parts.push(criteria.date.replaceAll("-", ""));
+  if(criteria.startDate) parts.push(criteria.startDate.replaceAll("-", ""));
+  if(criteria.endDate && criteria.endDate !== criteria.startDate) parts.push(criteria.endDate.replaceAll("-", ""));
   if(criteria.mall) parts.push(criteria.mall);
   if(criteria.keyword) parts.push(criteria.keyword);
 
@@ -830,7 +866,7 @@ function makeFilteredDownloadFilename(criteria){
   ].join("");
 
   const condition = parts.length ? parts.join("_") : "전체";
-  return `주문데이터_${condition}_${stamp}.xlsx`.replace(/[\\/:*?"<>|]/g, "_");
+  return `주문조회_전체결과_${condition}_${stamp}.xlsx`.replace(/[\\/:*?"<>|]/g, "_");
 }
 
 async function downloadFilteredOriginalRows(){
@@ -839,7 +875,7 @@ async function downloadFilteredOriginalRows(){
   downloadFilteredBtn.disabled = true;
   applyFilterBtn.disabled = true;
   searchBtn.disabled = true;
-  downloadFilteredBtn.textContent = "준비 중...";
+  downloadFilteredBtn.textContent = "전체 결과 준비 중...";
 
   try{
     const rows = await fetchOriginalRowsByCriteria(activeCriteria);
@@ -861,17 +897,17 @@ async function downloadFilteredOriginalRows(){
     });
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "필터결과");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "전체결과");
     XLSX.writeFile(workbook, makeFilteredDownloadFilename(activeCriteria));
     setFilterMeta(`${describeCriteria(activeCriteria)} 데이터 ${rows.length.toLocaleString("ko-KR")}건을 내려받았습니다.`);
   }catch(err){
-    console.error("필터 결과 다운로드 오류:", err);
-    setFilterMeta(`필터 결과 엑셀 내려받기 오류: ${err.message || err}`, true);
+    console.error("전체 결과 다운로드 오류:", err);
+    setFilterMeta(`전체 결과 엑셀 다운로드 오류: ${err.message || err}`, true);
   }finally{
     downloadFilteredBtn.disabled = !(activeCriteria && activeTotalCount > 0);
     applyFilterBtn.disabled = false;
     searchBtn.disabled = false;
-    downloadFilteredBtn.textContent = "필터 엑셀";
+    downloadFilteredBtn.textContent = "전체 결과 엑셀 다운로드";
   }
 }
 
