@@ -21,6 +21,11 @@
     font-family:"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;
   }
   *{box-sizing:border-box;}
+  html,body{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+  }
   body{
     margin:0;
     background:var(--bg);
@@ -375,15 +380,62 @@ const HEADER_MAP = {
 };
 const NUMERIC_KEYS = new Set(["quantity", "payment_amount"]);
 const SHEET_NAME = "발주서";
-const BATCH_SIZE = 500;
+const BATCH_SIZE = 200;
 /* ========================================================= */
 
-(async () => {
-  const session = await requireAuth();
-  if (!session) return; // requireAuth already redirects to login.html
-  renderUserBar(session, document.getElementById("userBar"));
-  await loadLatestUpload();
-})();
+let appInitialized = false;
+
+function renderSignedInUser(session){
+  const container = document.getElementById("userBar");
+  if(!container) return;
+
+  const email = session?.user?.email || "로그인 사용자";
+  container.innerHTML = `
+    <span style="font-size:13px;color:#5b6674;">${escapeHtml(email)}</span>
+    <button type="button" id="logoutBtn" class="ghost compact">로그아웃</button>
+  `;
+
+  document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+    const button = document.getElementById("logoutBtn");
+    if(button) button.disabled = true;
+
+    try{
+      await supabaseClient.auth.signOut();
+    }finally{
+      window.location.replace("login.html");
+    }
+  }, { once:true });
+}
+
+async function initializeApp(){
+  if(appInitialized) return;
+  appInitialized = true;
+
+  try{
+    const { data, error } = await supabaseClient.auth.getSession();
+    if(error) throw error;
+
+    const session = data?.session;
+    if(!session){
+      window.location.replace("login.html");
+      return;
+    }
+
+    renderSignedInUser(session);
+    await loadLatestUpload();
+  }catch(err){
+    console.error("초기화 오류:", err);
+    const latest = document.getElementById("latestUpload");
+    const latestFile = document.getElementById("latestUploadFile");
+    const latestMeta = document.getElementById("latestUploadMeta");
+
+    latest?.classList.add("error");
+    if(latestFile) latestFile.textContent = "페이지 초기화 중 오류가 발생했습니다.";
+    if(latestMeta) latestMeta.textContent = "새로고침 대신 다시 로그인해 주세요.";
+  }
+}
+
+initializeApp();
 
 /* ---------------- 최근 업로드 표시 ---------------- */
 const latestUpload = document.getElementById("latestUpload");
@@ -858,6 +910,7 @@ const progressWrap = document.getElementById("progressWrap");
 const progressBar = document.getElementById("progressBar");
 
 let selectedFile = null;
+let selectedFileBuffer = null;
 
 toggleUploadBtn.addEventListener("click", () => {
   const isOpen = uploadPanel.style.display === "block";
@@ -877,10 +930,23 @@ fileInput.addEventListener("change", () => {
   if (fileInput.files.length) setFile(fileInput.files[0]);
 });
 
-function setFile(file){
+async function setFile(file){
   selectedFile = file;
-  fileNameEl.textContent = file.name;
-  uploadBtn.disabled = false;
+  selectedFileBuffer = null;
+  fileNameEl.textContent = `${file.name} · 읽는 중...`;
+  uploadBtn.disabled = true;
+
+  try{
+    selectedFileBuffer = await file.arrayBuffer();
+    fileNameEl.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)}MB`;
+    uploadBtn.disabled = false;
+  }catch(err){
+    console.error("파일 읽기 오류:", err);
+    selectedFile = null;
+    selectedFileBuffer = null;
+    fileNameEl.textContent = "파일을 읽지 못했습니다. 엑셀을 닫고 로컬 폴더에서 다시 선택해 주세요.";
+    log(`❌ 파일 읽기 오류: ${err.message || err}`);
+  }
 }
 
 function log(msg){
@@ -902,8 +968,8 @@ uploadBtn.addEventListener("click", async () => {
 
   try{
     log(`파일 읽는 중: ${selectedFile.name}`);
-    const buf = await selectedFile.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
+    if(!selectedFileBuffer) throw new Error("파일 데이터가 준비되지 않았습니다. 파일을 다시 선택해 주세요.");
+    const wb = XLSX.read(selectedFileBuffer, { type: "array" });
 
     const sheetName = wb.SheetNames.includes(SHEET_NAME) ? SHEET_NAME : wb.SheetNames[0];
     log(`시트 사용: ${sheetName}`);
@@ -997,6 +1063,10 @@ uploadBtn.addEventListener("click", async () => {
 
     log(`✅ 전체 업로드 완료: ${uploaded}건 (열 ${headerRow.filter(h=>h).length}개 전부 저장됨)`);
     await loadLatestUpload();
+    selectedFile = null;
+    selectedFileBuffer = null;
+    fileInput.value = "";
+    fileNameEl.textContent = "";
   }catch(err){
     console.error(err);
     log(`❌ 오류 발생: ${err.message || err}`);
