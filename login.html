@@ -3,502 +3,119 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>주문 조회</title>
+<title>주문 조회 로그인</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="config.js"></script>
 <style>
   :root{
-    --ink:#1b2430;
-    --ink-soft:#5b6674;
-    --line:#e2e6eb;
-    --bg:#f6f7f9;
-    --panel:#ffffff;
-    --accent:#2f5d50;
-    --accent-soft:#eaf1ee;
-    --danger:#b3452c;
-    --radius:10px;
+    --ink:#1b2430; --ink-soft:#5b6674; --line:#e2e6eb;
+    --bg:#f6f7f9; --panel:#ffffff; --accent:#2f5d50;
+    --danger:#b3452c; --radius:10px;
     font-family:"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;
   }
   *{box-sizing:border-box;}
+  html,body{width:100%;min-height:100%;margin:0;}
   body{
-    margin:0;
-    background:var(--bg);
-    color:var(--ink);
-    min-height:100vh;
-    padding:32px 20px 80px;
+    background:var(--bg);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;padding:20px;
   }
-  .wrap{max-width:960px;margin:0 auto;}
-  header{margin-bottom:28px;}
-  header .eyebrow{
-    font-size:12px;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--accent);font-weight:700;margin-bottom:6px;
+  .card{
+    width:100%;max-width:360px;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:32px 28px;
   }
-  h1{font-size:26px;margin:0 0 4px;font-weight:800;}
-  header p{margin:0;color:var(--ink-soft);font-size:14px;}
-
-  .panel{
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:20px;
-    margin-bottom:20px;
+  .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:6px;}
+  h1{font-size:22px;margin:0 0 22px;font-weight:800;}
+  label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
+  input{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
+    font-size:15px;outline:none;margin-bottom:16px;transition:border-color .15s;
   }
-
-  .search-row{display:flex;gap:10px;flex-wrap:wrap;}
-  .search-row input[type="text"]{
-    flex:1 1 260px;
-    padding:12px 14px;
-    border:1px solid var(--line);
-    border-radius:8px;
-    font-size:15px;
-    outline:none;
-    transition:border-color .15s;
-  }
-  .search-row input[type="text"]:focus{border-color:var(--accent);}
-
+  input:focus{border-color:var(--accent);}
   button{
-    padding:12px 20px;
-    background:var(--accent);
-    color:#fff;
-    border:none;
-    border-radius:8px;
-    font-size:15px;
-    font-weight:600;
-    cursor:pointer;
-    transition:opacity .15s;
+    width:100%;padding:12px;border:none;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer;
   }
-  button:hover{opacity:.9;}
   button:disabled{opacity:.5;cursor:default;}
-  button.ghost{
-    background:transparent;
-    color:var(--accent);
-    border:1px solid var(--line);
+  .message{
+    display:none;margin-bottom:14px;padding:10px 12px;font-size:13px;
+    border:1px solid var(--line);border-radius:8px;
   }
-
-  .meta{
-    display:flex;justify-content:space-between;align-items:center;
-    margin:14px 0 8px;font-size:13px;color:var(--ink-soft);
-  }
-  .meta .count strong{color:var(--ink);}
-
-  table{
-    width:100%;
-    border-collapse:collapse;
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    overflow:hidden;
-  }
-  thead th{
-    background:var(--accent-soft);
-    color:var(--accent);
-    text-align:left;
-    font-size:12px;
-    letter-spacing:.03em;
-    padding:10px 12px;
-    border-bottom:1px solid var(--line);
-    white-space:nowrap;
-  }
-  tbody td{
-    padding:10px 12px;
-    border-bottom:1px solid var(--line);
-    font-size:14px;
-    vertical-align:top;
-  }
-  tbody tr:last-child td{border-bottom:none;}
-  tbody tr:hover{background:#fafbfc;}
-
-  .state{
-    padding:40px 20px;
-    text-align:center;
-    color:var(--ink-soft);
-    font-size:14px;
-    background:var(--panel);
-    border:1px dashed var(--line);
-    border-radius:var(--radius);
-  }
-  .state.error{color:var(--danger);border-color:#e7c9bd;background:#fdf5f2;}
-
-  .table-scroll{overflow-x:auto;}
-
-  footer{margin-top:30px;font-size:12px;color:var(--ink-soft);text-align:center;}
-
-  /* 업로드 패널 */
-  #uploadPanel{display:none;}
-  .drop{
-    border:2px dashed var(--line); border-radius:var(--radius);
-    padding:36px 20px; text-align:center; color:var(--ink-soft);
-    transition:border-color .15s, background .15s; cursor:pointer;
-  }
-  .drop.dragover{border-color:var(--accent);background:var(--accent-soft);}
-  .drop input{display:none;}
-  .drop .filename{margin-top:10px;font-weight:600;color:var(--ink);}
-  .options{display:flex;align-items:center;gap:8px;margin-top:16px;font-size:14px;color:var(--ink-soft);}
-  .options input{width:16px;height:16px;}
-  .actions{display:flex;gap:10px;margin-top:18px;}
-  .log{
-    margin-top:16px; background:#0f1a17; color:#c9e6da; font-size:13px;
-    border-radius:8px; padding:14px; max-height:260px; overflow-y:auto;
-    white-space:pre-wrap; font-family:"SFMono-Regular",Menlo,Consolas,monospace; display:none;
-  }
-  .progress{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:14px;display:none;}
-  .progress .bar{height:100%;width:0%;background:var(--accent);transition:width .2s;}
+  .message.error{display:block;background:#fdf5f2;color:var(--danger);border-color:#e7c9bd;}
+  .message.info{display:block;background:#eaf1ee;color:var(--accent);border-color:#cdded7;}
+  .secondary{margin-top:10px;background:transparent;color:var(--accent);border:1px solid var(--line);}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-    <div>
-      <div class="eyebrow">Internal Tool</div>
-      <h1>주문 조회</h1>
-      <p>검색어를 입력하면 일치하는 주문 데이터를 보여줍니다.</p>
-    </div>
-    <div id="userBar" style="display:flex;align-items:center;gap:10px;margin-top:4px;"></div>
-  </header>
+  <main class="card">
+    <div class="eyebrow">Internal Tool</div>
+    <h1>주문 조회 로그인</h1>
+    <div class="message" id="messageBox" role="alert"></div>
 
-  <div class="panel">
-    <div class="search-row">
-      <input type="text" id="searchInput" placeholder="예: 주문번호, 수령인, 운송장번호, 연락처 등으로 검색" />
-      <button id="searchBtn">조회</button>
-      <button id="toggleUploadBtn" class="ghost" type="button">데이터 업로드</button>
-    </div>
-  </div>
+    <form id="loginForm">
+      <label for="email">이메일</label>
+      <input type="email" id="email" required autocomplete="username" />
 
-  <!-- 업로드 패널 (버튼 클릭 시 노출) -->
-  <div class="panel" id="uploadPanel">
-    <h2 style="font-size:16px;margin:0 0 4px;">주문 데이터 업로드</h2>
-    <p style="margin:0 0 16px;color:var(--ink-soft);font-size:13px;">발주서 형식의 엑셀 파일(.xlsx)을 업로드하면 DB에 저장됩니다.</p>
+      <label for="password">비밀번호</label>
+      <input type="password" id="password" required autocomplete="current-password" />
 
-    <div class="drop" id="dropZone">
-      <div>엑셀 파일(.xlsx)을 이곳에 드래그하거나 클릭해서 선택하세요</div>
-      <div class="filename" id="fileName"></div>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" />
-    </div>
+      <button type="submit" id="loginBtn">로그인</button>
+    </form>
 
-    <div class="options">
-      <input type="checkbox" id="replaceMode" />
-      <label for="replaceMode">업로드 전 기존 데이터 전체 삭제 후 새로 등록 (전체 교체)</label>
-    </div>
+    <button type="button" id="continueBtn" class="secondary" hidden>현재 로그인으로 주문 조회 열기</button>
+  </main>
 
-    <div class="actions">
-      <button id="uploadBtn" disabled>업로드 시작</button>
-    </div>
-
-    <div class="progress" id="progressWrap"><div class="bar" id="progressBar"></div></div>
-    <div class="log" id="log"></div>
-  </div>
-
-  <div id="metaRow" class="meta" style="display:none;">
-    <div class="count">검색 결과 <strong id="resultCount">0</strong>건</div>
-  </div>
-
-  <div id="resultArea">
-    <div class="state">검색어를 입력하고 조회 버튼을 눌러주세요.</div>
-  </div>
-
-  <footer>Powered by Supabase</footer>
-</div>
-
+<script src="config.js"></script>
 <script>
-/* =========================================================
-   CONFIG — SUPABASE_URL / KEY는 config.js에서 관리합니다.
-   ========================================================= */
-const TABLE_NAME = "orders";
+const form = document.getElementById("loginForm");
+const messageBox = document.getElementById("messageBox");
+const loginBtn = document.getElementById("loginBtn");
+const continueBtn = document.getElementById("continueBtn");
 
-// 검색 대상 컬럼: B 주문번호(사방넷), C 주문번호(쇼핑몰), E 수령인,
-// G 운송장번호, H/I 받는분연락처, Z/AA 주문자연락처
-const SEARCH_COLUMNS = [
-  "order_no_sabangnet",
-  "order_no_mall",
-  "receiver_name",
-  "tracking_no",
-  "receiver_phone",
-  "receiver_phone2",
-  "orderer_phone1",
-  "orderer_phone2",
-];
+function showMessage(message, type="error"){
+  messageBox.textContent = message;
+  messageBox.className = `message ${type}`;
+}
 
-// 결과 테이블에 보여줄 컬럼: A B C D E F G H L M N T V
-const DISPLAY_COLUMNS = [
-  "shipped_date",
-  "order_no_sabangnet",
-  "order_no_mall",
-  "mall",
-  "receiver_name",
-  "courier",
-  "tracking_no",
-  "receiver_phone",
-  "product_name",
-  "quantity",
-  "payment_amount",
-  "product_color_code",
-  "option_collected",
-];
-
-// 결과 테이블 헤더에 보여줄 한글 라벨
-const LABELS = {
-  shipped_date: "출고일",
-  order_no_sabangnet: "주문번호(사방넷)",
-  order_no_mall: "주문번호(쇼핑몰)",
-  mall: "쇼핑몰",
-  receiver_name: "수령인",
-  courier: "택배사",
-  tracking_no: "운송장번호",
-  receiver_phone: "받는분연락처",
-  product_name: "상품명",
-  quantity: "수량",
-  payment_amount: "결제금액",
-  product_color_code: "상품컬러코드",
-  option_collected: "옵션(수집)",
-};
-
-// 한 번에 가져올 최대 결과 수
-const MAX_RESULTS = 200;
-
-// 엑셀 헤더 텍스트 -> DB 컬럼명 매핑 (업로드용)
-const HEADER_MAP = {
-  "출고일": "shipped_date",
-  "주문번호(사방넷)": "order_no_sabangnet",
-  "주문번호(쇼핑몰)": "order_no_mall",
-  "쇼핑몰": "mall",
-  "수령인": "receiver_name",
-  "택배사": "courier",
-  "운송장번호": "tracking_no",
-  "받는분연락처": "receiver_phone",
-  "받는분기타연락처": "receiver_phone2",
-  "주소": "address",
-  "배송메세지": "delivery_message",
-  "상품명": "product_name",
-  "수량": "quantity",
-  "결제금액": "payment_amount",
-  "큐텐(한글상품명)": "product_name_qoo10",
-  "바코드": "barcode",
-  "큐텐바코드": "qoo10_barcode",
-  "상품코드": "product_code",
-  "쇼핑몰(참고용)": "mall_ref",
-  "상품컬러코드": "product_color_code",
-  "상품명(수집)": "product_name_collected",
-  "옵션(수집)": "option_collected",
-  "주문자명": "orderer_name",
-  "구분": "category",
-  "주문일시": "order_datetime",
-  "주문자 연락처(1)": "orderer_phone1",
-  "주문자 연락처(2)": "orderer_phone2",
-  "미출고": "not_shipped",
-};
-const NUMERIC_KEYS = new Set(["quantity", "payment_amount"]);
-const SHEET_NAME = "발주서";
-const BATCH_SIZE = 500;
-/* ========================================================= */
-
+// 자동 이동하지 않습니다. 기존 세션이 있으면 사용자가 직접 이동 버튼을 누르게 해
+// login.html ↔ index.html 간 반복 이동을 방지합니다.
 (async () => {
-  const session = await requireAuth();
-  if (!session) return; // requireAuth already redirects to login.html
-  renderUserBar(session, document.getElementById("userBar"));
-})();
-
-/* ---------------- 검색 영역 ---------------- */
-const searchInput = document.getElementById("searchInput");
-const searchBtn = document.getElementById("searchBtn");
-const resultArea = document.getElementById("resultArea");
-const metaRow = document.getElementById("metaRow");
-const resultCount = document.getElementById("resultCount");
-
-function setState(html, isError=false){
-  metaRow.style.display = "none";
-  resultArea.innerHTML = `<div class="state ${isError ? "error" : ""}">${html}</div>`;
-}
-
-function renderTable(rows){
-  if(!rows.length){
-    setState("일치하는 주문이 없습니다.");
-    return;
-  }
-  const columns = DISPLAY_COLUMNS.length ? DISPLAY_COLUMNS : Object.keys(rows[0]);
-
-  const thead = `<thead><tr>${columns.map(c => `<th>${escapeHtml(LABELS[c] || c)}</th>`).join("")}</tr></thead>`;
-  const tbody = `<tbody>${rows.map(row => `<tr>${
-    columns.map(c => `<td>${escapeHtml(row[c] ?? "")}</td>`).join("")
-  }</tr>`).join("")}</tbody>`;
-
-  resultArea.innerHTML = `<div class="table-scroll"><table>${thead}${tbody}</table></div>`;
-
-  metaRow.style.display = "flex";
-  resultCount.textContent = rows.length;
-}
-
-function escapeHtml(v){
-  return String(v)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-async function runSearch(){
-  const keyword = searchInput.value.trim();
-  if(!keyword){
-    setState("검색어를 입력하고 조회 버튼을 눌러주세요.");
-    return;
-  }
-
-  searchBtn.disabled = true;
-  setState("조회 중...");
-
   try{
-    const orFilter = SEARCH_COLUMNS
-      .map(col => `${col}.ilike.%${keyword}%`)
-      .join(",");
-
-    const { data, error } = await supabaseClient
-      .from(TABLE_NAME)
-      .select("*")
-      .or(orFilter)
-      .limit(MAX_RESULTS);
-
+    const { data, error } = await supabaseClient.auth.getSession();
     if(error) throw error;
 
-    renderTable(data || []);
+    if(data?.session){
+      showMessage("이미 로그인되어 있습니다.", "info");
+      continueBtn.hidden = false;
+    }
   }catch(err){
-    console.error(err);
-    setState(`조회 중 오류가 발생했습니다: ${escapeHtml(err.message || err)}`, true);
-  }finally{
-    searchBtn.disabled = false;
+    console.error("세션 확인 오류:", err);
   }
-}
+})();
 
-searchBtn.addEventListener("click", runSearch);
-searchInput.addEventListener("keydown", (e) => {
-  if(e.key === "Enter") runSearch();
+continueBtn.addEventListener("click", () => {
+  window.location.replace("index.html");
 });
 
-/* ---------------- 업로드 영역 (버튼으로 토글) ---------------- */
-const toggleUploadBtn = document.getElementById("toggleUploadBtn");
-const uploadPanel = document.getElementById("uploadPanel");
-const dropZone = document.getElementById("dropZone");
-const fileInput = document.getElementById("fileInput");
-const fileNameEl = document.getElementById("fileName");
-const uploadBtn = document.getElementById("uploadBtn");
-const replaceMode = document.getElementById("replaceMode");
-const logEl = document.getElementById("log");
-const progressWrap = document.getElementById("progressWrap");
-const progressBar = document.getElementById("progressBar");
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  messageBox.className = "message";
+  loginBtn.disabled = true;
+  loginBtn.textContent = "로그인 중...";
 
-let selectedFile = null;
-
-toggleUploadBtn.addEventListener("click", () => {
-  const isOpen = uploadPanel.style.display === "block";
-  uploadPanel.style.display = isOpen ? "none" : "block";
-  toggleUploadBtn.textContent = isOpen ? "데이터 업로드" : "업로드 닫기";
-});
-
-dropZone.addEventListener("click", () => fileInput.click());
-dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
-dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
-dropZone.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dropZone.classList.remove("dragover");
-  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener("change", () => {
-  if (fileInput.files.length) setFile(fileInput.files[0]);
-});
-
-function setFile(file){
-  selectedFile = file;
-  fileNameEl.textContent = file.name;
-  uploadBtn.disabled = false;
-}
-
-function log(msg){
-  logEl.style.display = "block";
-  logEl.textContent += msg + "\n";
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
-function setProgress(pct){
-  progressWrap.style.display = "block";
-  progressBar.style.width = pct + "%";
-}
-
-uploadBtn.addEventListener("click", async () => {
-  if (!selectedFile) return;
-  uploadBtn.disabled = true;
-  logEl.textContent = "";
-  setProgress(0);
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
   try{
-    log(`파일 읽는 중: ${selectedFile.name}`);
-    const buf = await selectedFile.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    if(!data?.session) throw new Error("로그인 세션을 생성하지 못했습니다.");
 
-    const sheetName = wb.SheetNames.includes(SHEET_NAME) ? SHEET_NAME : wb.SheetNames[0];
-    log(`시트 사용: ${sheetName}`);
-    const ws = wb.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-    if (!rows.length){
-      log("데이터가 없습니다.");
-      uploadBtn.disabled = false;
-      return;
-    }
-
-    const headerRow = rows[0].map(h => (h === null ? "" : String(h).trim()));
-    const dataRows = rows.slice(1).filter(r => r.some(cell => cell !== null && cell !== ""));
-
-    log(`총 ${dataRows.length}건의 데이터 확인됨`);
-
-    const colMap = [];
-    headerRow.forEach((h, i) => {
-      colMap[i] = HEADER_MAP[h] || null;
-    });
-
-    const unmapped = headerRow.filter((h, i) => h && !colMap[i]);
-    if (unmapped.length){
-      log(`⚠ 매핑되지 않은 열(무시됨): ${unmapped.join(", ")}`);
-    }
-
-    const records = dataRows.map(r => {
-      const rec = {};
-      colMap.forEach((key, i) => {
-        if (!key) return;
-        let val = r[i];
-        if (val === undefined) val = null;
-        if (NUMERIC_KEYS.has(key)){
-          const n = Number(val);
-          val = (val === null || val === "" || isNaN(n)) ? null : n;
-        } else if (val !== null) {
-          val = String(val);
-        }
-        rec[key] = val;
-      });
-      return rec;
-    });
-
-    if (replaceMode.checked){
-      log("기존 데이터 삭제 중...");
-      const { error: delErr } = await supabaseClient.from(TABLE_NAME).delete().gte("id", 0);
-      if (delErr) throw delErr;
-      log("기존 데이터 삭제 완료");
-    }
-
-    log(`업로드 시작 (배치 크기: ${BATCH_SIZE})`);
-    let uploaded = 0;
-    for (let i = 0; i < records.length; i += BATCH_SIZE){
-      const batch = records.slice(i, i + BATCH_SIZE);
-      const { error } = await supabaseClient.from(TABLE_NAME).insert(batch);
-      if (error) throw error;
-      uploaded += batch.length;
-      setProgress(Math.round((uploaded / records.length) * 100));
-      log(`  ${uploaded} / ${records.length} 건 업로드 완료`);
-    }
-
-    log(`✅ 전체 업로드 완료: ${uploaded}건`);
+    window.location.replace("index.html");
   }catch(err){
-    console.error(err);
-    log(`❌ 오류 발생: ${err.message || err}`);
-  }finally{
-    uploadBtn.disabled = false;
+    console.error("로그인 오류:", err);
+    showMessage("이메일 또는 비밀번호가 올바르지 않거나 로그인을 완료하지 못했습니다.");
+    loginBtn.disabled = false;
+    loginBtn.textContent = "로그인";
   }
 });
 </script>
