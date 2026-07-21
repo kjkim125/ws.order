@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>주문 조회</title>
+<title> 화이트샌즈 출고조회</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="config.js"></script>
@@ -77,10 +77,22 @@
   }
 
   .meta{
-    display:flex;justify-content:space-between;align-items:center;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
     margin:14px 0 8px;font-size:13px;color:var(--ink-soft);
   }
   .meta .count strong{color:var(--ink);}
+  .selection-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .selection-tools .hint{font-size:12px;color:var(--ink-soft);}
+  button.compact{padding:8px 12px;font-size:13px;}
+  .select-cell{width:42px;min-width:42px;text-align:center!important;}
+  .row-check,#selectAllRows{width:16px;height:16px;cursor:pointer;accent-color:var(--accent);}
+  tbody tr.selected{background:var(--accent-soft);}
+  tbody tr.selected:hover{background:var(--accent-soft);}
+  .notice{
+    display:none;margin:0 0 10px;padding:10px 12px;border-radius:8px;
+    background:var(--accent-soft);color:var(--accent);font-size:13px;border:1px solid #cdded7;
+  }
+  .notice.error{background:#fdf5f2;color:var(--danger);border-color:#e7c9bd;}
 
   table{
     width:100%;
@@ -152,14 +164,13 @@
     <div>
       <div class="eyebrow">Internal Tool</div>
       <h1>주문 조회</h1>
-      <p>검색어를 입력하면 일치하는 주문 데이터를 보여줍니다.</p>
     </div>
     <div id="userBar" style="display:flex;align-items:center;gap:10px;margin-top:4px;"></div>
   </header>
 
   <div class="panel">
     <div class="search-row">
-      <input type="text" id="searchInput" placeholder="주문번호, 수령인, 운송장번호, 연락처로 검색" />
+      <input type="text" id="searchInput" placeholder="예: 주문번호, 수령인, 운송장번호, 연락처 등으로 검색" />
       <button id="searchBtn">조회</button>
       <button id="toggleUploadBtn" class="ghost" type="button">데이터 업로드</button>
     </div>
@@ -190,8 +201,17 @@
   </div>
 
   <div id="metaRow" class="meta" style="display:none;">
-    <div class="count">검색 결과 <strong id="resultCount">0</strong>건</div>
+    <div class="count">
+      검색 결과 <strong id="resultCount">0</strong>건 · 선택 <strong id="selectedCount">0</strong>건
+    </div>
+    <div class="selection-tools">
+      <span class="hint">체크 후 Ctrl/Cmd + C로 원본 전체 행 복사</span>
+      <button id="copySelectedBtn" class="ghost compact" type="button" disabled>선택 행 전체 복사</button>
+      <button id="downloadSelectedBtn" class="ghost compact" type="button" disabled>선택 행 엑셀 내려받기</button>
+    </div>
   </div>
+
+  <div id="actionNotice" class="notice" role="status" aria-live="polite"></div>
 
   <div id="resultArea">
     <div class="state">검색어를 입력하고 조회 버튼을 눌러주세요.</div>
@@ -207,18 +227,19 @@
 const TABLE_NAME = "orders";
 const BATCH_TABLE_NAME = "import_batches";
 
-// 검색 대상은 정확히 7개 열만 사용합니다: B, C, E, G, H, Z, AA
+// 검색 대상 컬럼: B 주문번호(사방넷), C 주문번호(쇼핑몰), E 수령인,
+// G 운송장번호, H 받는분연락처, Z/AA 주문자연락처
 const SEARCH_COLUMNS = [
-  "order_no_sabangnet", // B: 주문번호(사방넷)
-  "order_no_mall",      // C: 주문번호(쇼핑몰)
-  "receiver_name",      // E: 수령인
-  "tracking_no",        // G: 운송장번호
-  "receiver_phone",     // H: 받는분연락처
-  "orderer_phone1",     // Z: 주문자 연락처(1)
-  "orderer_phone2",     // AA: 주문자 연락처(2)
+  "order_no_sabangnet",
+  "order_no_mall",
+  "receiver_name",
+  "tracking_no",
+  "receiver_phone",
+  "orderer_phone1",
+  "orderer_phone2",
 ];
 
-// 결과 테이블 노출 열: A B C D E F G H L M N T V
+// 결과 테이블에 보여줄 컬럼: A B C D E F G H L M N T V
 const DISPLAY_COLUMNS = [
   "shipped_date",
   "order_no_sabangnet",
@@ -235,6 +256,7 @@ const DISPLAY_COLUMNS = [
   "option_collected",
 ];
 
+// 결과 테이블 헤더에 보여줄 한글 라벨
 const LABELS = {
   shipped_date: "출고일",
   order_no_sabangnet: "주문번호(사방넷)",
@@ -251,6 +273,11 @@ const LABELS = {
   option_collected: "옵션(수집)",
 };
 
+// 한 번에 가져올 최대 결과 수
+const MAX_RESULTS = 200;
+
+// 엑셀 헤더 텍스트 -> DB 컬럼명 매핑 (업로드용)
+// 실제 파일마다 헤더 표기가 조금씩 다를 수 있어 여러 변형을 함께 매핑해둡니다.
 const HEADER_MAP = {
   "출고일": "shipped_date",
   "주문번호(사방넷)": "order_no_sabangnet",
@@ -263,7 +290,6 @@ const HEADER_MAP = {
   "받는분기타연락처": "receiver_phone2",
   "주소": "address",
   "배송메세지": "delivery_message",
-  "배송메시지": "delivery_message",
   "상품명": "product_name",
   "수량": "quantity",
   "결제금액": "payment_amount",
@@ -272,7 +298,6 @@ const HEADER_MAP = {
   "큐텐바코드": "qoo10_barcode",
   "상품코드": "product_code",
   "모델NO": "model_no",
-  "모델No": "model_no",
   "쇼핑몰(참고용)": "mall_ref",
   "상품컬러코드": "product_color_code",
   "상품명(수집)": "product_name_collected",
@@ -287,49 +312,16 @@ const HEADER_MAP = {
   "주문자전화번호2": "orderer_phone2",
   "미출고": "not_shipped",
 };
-
 const NUMERIC_KEYS = new Set(["quantity", "payment_amount"]);
-const REQUIRED_KEYS = [...new Set([...SEARCH_COLUMNS, ...DISPLAY_COLUMNS])];
-const MAX_RESULTS = 200;
 const SHEET_NAME = "발주서";
-const BATCH_SIZE = 250;
+const BATCH_SIZE = 500;
 /* ========================================================= */
 
 (async () => {
   const session = await requireAuth();
-  if (!session) return;
+  if (!session) return; // requireAuth already redirects to login.html
   renderUserBar(session, document.getElementById("userBar"));
 })();
-
-/* ---------------- 공통 함수 ---------------- */
-function escapeHtml(value){
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function normalizeHeader(value){
-  return String(value ?? "")
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function parseNumber(value){
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(String(value).replace(/,/g, "").trim());
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function formatBytes(bytes){
-  if (!Number.isFinite(bytes)) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 /* ---------------- 검색 영역 ---------------- */
 const searchInput = document.getElementById("searchInput");
@@ -337,38 +329,301 @@ const searchBtn = document.getElementById("searchBtn");
 const resultArea = document.getElementById("resultArea");
 const metaRow = document.getElementById("metaRow");
 const resultCount = document.getElementById("resultCount");
+const selectedCount = document.getElementById("selectedCount");
+const copySelectedBtn = document.getElementById("copySelectedBtn");
+const downloadSelectedBtn = document.getElementById("downloadSelectedBtn");
+const actionNotice = document.getElementById("actionNotice");
+
+let currentRows = [];
+const selectedRowIds = new Set();
+let noticeTimer = null;
+
+// 조회 단계에서는 화면 표시 컬럼과 식별자만 가져옵니다.
+// 원본 전체 행(raw_data)은 사용자가 복사/다운로드할 때 선택된 행만 별도로 조회합니다.
+const SEARCH_SELECT_COLUMNS = ["id", "batch_id", ...DISPLAY_COLUMNS].join(",");
+
+function clearSelection(){
+  selectedRowIds.clear();
+  updateSelectionUI();
+}
 
 function setState(html, isError=false){
+  currentRows = [];
+  clearSelection();
   metaRow.style.display = "none";
+  actionNotice.style.display = "none";
   resultArea.innerHTML = `<div class="state ${isError ? "error" : ""}">${html}</div>`;
 }
 
 function renderTable(rows){
-  if (!rows.length){
+  if(!rows.length){
     setState("일치하는 주문이 없습니다.");
     return;
   }
 
-  const thead = `<thead><tr>${DISPLAY_COLUMNS
-    .map(column => `<th>${escapeHtml(LABELS[column] || column)}</th>`)
-    .join("")}</tr></thead>`;
+  currentRows = rows;
+  selectedRowIds.clear();
+  const columns = DISPLAY_COLUMNS.length ? DISPLAY_COLUMNS : Object.keys(rows[0]);
 
-  const tbody = `<tbody>${rows.map(row => `<tr>${DISPLAY_COLUMNS
-    .map(column => `<td>${escapeHtml(row[column] ?? "")}</td>`)
-    .join("")}</tr>`).join("")}</tbody>`;
+  const thead = `<thead><tr>
+    <th class="select-cell"><input type="checkbox" id="selectAllRows" aria-label="검색 결과 전체 선택" /></th>
+    ${columns.map(c => `<th>${escapeHtml(LABELS[c] || c)}</th>`).join("")}
+  </tr></thead>`;
+
+  const tbody = `<tbody>${rows.map(row => {
+    const rowId = String(row.id);
+    return `<tr data-row-id="${escapeHtml(rowId)}">
+      <td class="select-cell"><input type="checkbox" class="row-check" data-row-id="${escapeHtml(rowId)}" aria-label="이 행 선택" /></td>
+      ${columns.map(c => `<td>${escapeHtml(row[c] ?? "")}</td>`).join("")}
+    </tr>`;
+  }).join("")}</tbody>`;
 
   resultArea.innerHTML = `<div class="table-scroll"><table>${thead}${tbody}</table></div>`;
+
   metaRow.style.display = "flex";
   resultCount.textContent = rows.length;
+  updateSelectionUI();
+  bindSelectionEvents();
 }
 
-function escapePostgrestFilterValue(value){
-  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+function bindSelectionEvents(){
+  const selectAll = document.getElementById("selectAllRows");
+  const rowChecks = [...document.querySelectorAll(".row-check")];
+
+  selectAll?.addEventListener("change", () => {
+    rowChecks.forEach(check => {
+      check.checked = selectAll.checked;
+      const rowId = check.dataset.rowId;
+      if(selectAll.checked) selectedRowIds.add(rowId);
+      else selectedRowIds.delete(rowId);
+      check.closest("tr")?.classList.toggle("selected", selectAll.checked);
+    });
+    updateSelectionUI();
+  });
+
+  rowChecks.forEach(check => {
+    check.addEventListener("change", () => {
+      const rowId = check.dataset.rowId;
+      if(check.checked) selectedRowIds.add(rowId);
+      else selectedRowIds.delete(rowId);
+      check.closest("tr")?.classList.toggle("selected", check.checked);
+      updateSelectionUI();
+    });
+  });
+}
+
+function updateSelectionUI(){
+  const count = selectedRowIds.size;
+  selectedCount.textContent = count;
+  copySelectedBtn.disabled = count === 0;
+  downloadSelectedBtn.disabled = count === 0;
+
+  const selectAll = document.getElementById("selectAllRows");
+  if(selectAll && currentRows.length){
+    selectAll.checked = count === currentRows.length;
+    selectAll.indeterminate = count > 0 && count < currentRows.length;
+  }
+}
+
+function escapeHtml(v){
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function showNotice(message, isError=false){
+  clearTimeout(noticeTimer);
+  actionNotice.textContent = message;
+  actionNotice.classList.toggle("error", isError);
+  actionNotice.style.display = "block";
+  noticeTimer = setTimeout(() => {
+    actionNotice.style.display = "none";
+  }, 4000);
+}
+
+function getSelectedSummaryRows(){
+  return currentRows.filter(row => selectedRowIds.has(String(row.id)));
+}
+
+async function fetchSelectedOriginalRows(){
+  const selected = getSelectedSummaryRows();
+  if(!selected.length) throw new Error("선택된 행이 없습니다.");
+
+  const ids = selected.map(row => row.id);
+  const { data, error } = await supabaseClient
+    .from(TABLE_NAME)
+    .select("id,batch_id,raw_data")
+    .in("id", ids);
+
+  if(error) throw error;
+
+  const originalById = new Map((data || []).map(row => [String(row.id), row]));
+  const orderedRows = selected
+    .map(row => originalById.get(String(row.id)))
+    .filter(Boolean);
+
+  if(orderedRows.length !== selected.length){
+    throw new Error("일부 원본 행을 불러오지 못했습니다.");
+  }
+
+  return orderedRows;
+}
+
+async function fetchBatchInfo(rows){
+  const batchIds = [...new Set(rows.map(row => row.batch_id).filter(v => v !== null && v !== undefined))];
+  if(!batchIds.length) return new Map();
+
+  const { data, error } = await supabaseClient
+    .from(BATCH_TABLE_NAME)
+    .select("id,headers,filename")
+    .in("id", batchIds);
+
+  if(error) throw error;
+  return new Map((data || []).map(batch => [String(batch.id), batch]));
+}
+
+function normalizeHeaders(value){
+  if(Array.isArray(value)) return value.map(String);
+  if(typeof value === "string"){
+    try{
+      const parsed = JSON.parse(value);
+      if(Array.isArray(parsed)) return parsed.map(String);
+    }catch(_){ /* ignore */ }
+  }
+  return [];
+}
+
+function buildOriginalMatrix(rows, batchMap){
+  const headers = [];
+  const seen = new Set();
+
+  rows.forEach(row => {
+    const batchHeaders = normalizeHeaders(batchMap.get(String(row.batch_id))?.headers);
+    const fallbackHeaders = Object.keys(row.raw_data || {});
+    [...batchHeaders, ...fallbackHeaders].forEach(header => {
+      if(!seen.has(header)){
+        seen.add(header);
+        headers.push(header);
+      }
+    });
+  });
+
+  const values = rows.map(row => headers.map(header => row.raw_data?.[header] ?? ""));
+  return { headers, values };
+}
+
+function cleanClipboardCell(value){
+  return String(value ?? "")
+    .replace(/\t/g, " ")
+    .replace(/\r?\n/g, " ");
+}
+
+async function writeClipboard(text){
+  if(navigator.clipboard && window.isSecureContext){
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  const ok = document.execCommand("copy");
+  textarea.remove();
+  if(!ok) throw new Error("클립보드 복사 권한을 사용할 수 없습니다.");
+}
+
+async function copySelectedOriginalRows(){
+  const count = selectedRowIds.size;
+  if(!count) return;
+
+  copySelectedBtn.disabled = true;
+  downloadSelectedBtn.disabled = true;
+
+  try{
+    const rows = await fetchSelectedOriginalRows();
+    const batchMap = await fetchBatchInfo(rows);
+    const { values } = buildOriginalMatrix(rows, batchMap);
+    const tsv = values.map(row => row.map(cleanClipboardCell).join("\t")).join("\n");
+
+    await writeClipboard(tsv);
+    showNotice(`${rows.length}개 원본 행 전체를 복사했습니다. 엑셀에서 붙여넣기 하세요.`);
+  }catch(err){
+    console.error(err);
+    showNotice(`복사 중 오류가 발생했습니다: ${err.message || err}`, true);
+  }finally{
+    updateSelectionUI();
+  }
+}
+
+function makeDownloadFilename(rows, batchMap){
+  const filenames = [...new Set(rows
+    .map(row => batchMap.get(String(row.batch_id))?.filename)
+    .filter(Boolean))];
+
+  const base = filenames.length === 1
+    ? filenames[0].replace(/\.xlsx?$/i, "")
+    : "주문조회";
+
+  const now = new Date();
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    "_",
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
+    String(now.getSeconds()).padStart(2, "0"),
+  ].join("");
+
+  return `${base}_선택행_${stamp}.xlsx`.replace(/[\\/:*?"<>|]/g, "_");
+}
+
+async function downloadSelectedOriginalRows(){
+  const count = selectedRowIds.size;
+  if(!count) return;
+
+  copySelectedBtn.disabled = true;
+  downloadSelectedBtn.disabled = true;
+
+  try{
+    const rows = await fetchSelectedOriginalRows();
+    const batchMap = await fetchBatchInfo(rows);
+    const { headers, values } = buildOriginalMatrix(rows, batchMap);
+
+    if(!headers.length) throw new Error("원본 헤더 정보를 찾지 못했습니다.");
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...values]);
+    worksheet["!cols"] = headers.map((header, index) => {
+      const maxLength = Math.max(
+        String(header).length,
+        ...values.map(row => String(row[index] ?? "").length)
+      );
+      return { wch: Math.min(Math.max(maxLength + 2, 10), 40) };
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "선택행");
+    const filename = makeDownloadFilename(rows, batchMap);
+    XLSX.writeFile(workbook, filename);
+
+    showNotice(`${rows.length}개 원본 행을 엑셀 파일로 내려받았습니다.`);
+  }catch(err){
+    console.error(err);
+    showNotice(`엑셀 내려받기 중 오류가 발생했습니다: ${err.message || err}`, true);
+  }finally{
+    updateSelectionUI();
+  }
 }
 
 async function runSearch(){
   const keyword = searchInput.value.trim();
-  if (!keyword){
+  if(!keyword){
     setState("검색어를 입력하고 조회 버튼을 눌러주세요.");
     return;
   }
@@ -377,33 +632,55 @@ async function runSearch(){
   setState("조회 중...");
 
   try{
-    const escapedKeyword = escapePostgrestFilterValue(keyword);
     const orFilter = SEARCH_COLUMNS
-      .map(column => `${column}.ilike."%${escapedKeyword}%"`)
+      .map(col => `${col}.ilike.%${keyword}%`)
       .join(",");
 
     const { data, error } = await supabaseClient
       .from(TABLE_NAME)
-      .select(DISPLAY_COLUMNS.join(","))
+      .select(SEARCH_SELECT_COLUMNS)
       .or(orFilter)
       .limit(MAX_RESULTS);
 
-    if (error) throw error;
+    if(error) throw error;
     renderTable(data || []);
-  }catch(error){
-    console.error(error);
-    setState(`조회 중 오류가 발생했습니다: ${escapeHtml(error.message || error)}`, true);
+  }catch(err){
+    console.error(err);
+    setState(`조회 중 오류가 발생했습니다: ${escapeHtml(err.message || err)}`, true);
   }finally{
     searchBtn.disabled = false;
   }
 }
 
+copySelectedBtn.addEventListener("click", copySelectedOriginalRows);
+downloadSelectedBtn.addEventListener("click", downloadSelectedOriginalRows);
+
 searchBtn.addEventListener("click", runSearch);
-searchInput.addEventListener("keydown", event => {
-  if (event.key === "Enter") runSearch();
+searchInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter") runSearch();
 });
 
-/* ---------------- 업로드 영역 ---------------- */
+// 체크된 행이 있을 때 Ctrl+C 또는 Cmd+C를 누르면 원본 전체 행을 복사합니다.
+// 검색창/입력창을 사용 중이거나 화면에서 텍스트를 드래그 선택한 경우에는 기본 복사를 유지합니다.
+document.addEventListener("keydown", (e) => {
+  const isCopyShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c";
+  if(!isCopyShortcut || selectedRowIds.size === 0) return;
+
+  const active = document.activeElement;
+  const isEditing = active && (
+    active.tagName === "INPUT" ||
+    active.tagName === "TEXTAREA" ||
+    active.isContentEditable
+  );
+  const hasTextSelection = Boolean(window.getSelection()?.toString());
+
+  if(isEditing || hasTextSelection) return;
+
+  e.preventDefault();
+  copySelectedOriginalRows();
+});
+
+/* ---------------- 업로드 영역 (버튼으로 토글) ---------------- */
 const toggleUploadBtn = document.getElementById("toggleUploadBtn");
 const uploadPanel = document.getElementById("uploadPanel");
 const dropZone = document.getElementById("dropZone");
@@ -415,8 +692,7 @@ const logEl = document.getElementById("log");
 const progressWrap = document.getElementById("progressWrap");
 const progressBar = document.getElementById("progressBar");
 
-let selectedFileInfo = null;
-let selectedFileBuffer = null;
+let selectedFile = null;
 
 toggleUploadBtn.addEventListener("click", () => {
   const isOpen = uploadPanel.style.display === "block";
@@ -425,230 +701,141 @@ toggleUploadBtn.addEventListener("click", () => {
 });
 
 dropZone.addEventListener("click", () => fileInput.click());
-dropZone.addEventListener("dragover", event => {
-  event.preventDefault();
-  dropZone.classList.add("dragover");
-});
+dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
 dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
-dropZone.addEventListener("drop", event => {
-  event.preventDefault();
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
   dropZone.classList.remove("dragover");
-  const file = event.dataTransfer.files?.[0];
-  if (file) void prepareFile(file);
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  if (file) void prepareFile(file);
+  if (fileInput.files.length) setFile(fileInput.files[0]);
 });
 
-async function prepareFile(file){
-  selectedFileInfo = null;
-  selectedFileBuffer = null;
-  uploadBtn.disabled = true;
-  fileNameEl.textContent = `${file.name} 파일 준비 중...`;
-  logEl.textContent = "";
-  logEl.style.display = "none";
-  setProgress(0);
-  progressWrap.style.display = "none";
-
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  if (!['xlsx', 'xls'].includes(extension)){
-    fileNameEl.textContent = "엑셀 파일(.xlsx, .xls)만 선택할 수 있습니다.";
-    fileInput.value = "";
-    return;
-  }
-
-  try{
-    // 파일 선택 권한이 사라지는 문제를 막기 위해 선택 즉시 메모리로 읽습니다.
-    const buffer = await file.arrayBuffer();
-    selectedFileInfo = { name: file.name, size: file.size };
-    selectedFileBuffer = buffer;
-    fileNameEl.textContent = `${file.name} (${formatBytes(file.size)})`;
-    uploadBtn.disabled = false;
-  }catch(error){
-    console.error(error);
-    fileNameEl.textContent = "파일을 읽지 못했습니다. 엑셀을 닫고 로컬 폴더에 복사한 뒤 다시 선택해 주세요.";
-    log(`❌ 파일 준비 오류: ${error.message || error}`);
-  }finally{
-    // 같은 파일도 다시 선택할 수 있도록 입력값을 비웁니다.
-    fileInput.value = "";
-  }
+function setFile(file){
+  selectedFile = file;
+  fileNameEl.textContent = file.name;
+  uploadBtn.disabled = false;
 }
 
-function log(message){
+function log(msg){
   logEl.style.display = "block";
-  logEl.textContent += message + "\n";
+  logEl.textContent += msg + "\n";
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function setProgress(percent){
+function setProgress(pct){
   progressWrap.style.display = "block";
-  progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-}
-
-function findHeaderRowIndex(rows){
-  const scanLimit = Math.min(rows.length, 30);
-  for (let index = 0; index < scanLimit; index += 1){
-    const headers = (rows[index] || []).map(normalizeHeader);
-    const headerSet = new Set(headers);
-    if (
-      headerSet.has("주문번호(사방넷)") &&
-      headerSet.has("주문번호(쇼핑몰)") &&
-      headerSet.has("수령인")
-    ){
-      return index;
-    }
-  }
-  return -1;
+  progressBar.style.width = pct + "%";
 }
 
 uploadBtn.addEventListener("click", async () => {
-  if (!selectedFileInfo || !selectedFileBuffer) return;
-
+  if (!selectedFile) return;
   uploadBtn.disabled = true;
   logEl.textContent = "";
   setProgress(0);
 
-  let batchId = null;
-
   try{
-    log(`파일 분석 중: ${selectedFileInfo.name}`);
-    const workbook = XLSX.read(selectedFileBuffer.slice(0), {
-      type: "array",
-      cellDates: true,
-    });
+    log(`파일 읽는 중: ${selectedFile.name}`);
+    const buf = await selectedFile.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
 
-    const sheetName = workbook.SheetNames.includes(SHEET_NAME)
-      ? SHEET_NAME
-      : workbook.SheetNames[0];
-
-    if (!sheetName) throw new Error("엑셀 시트를 찾을 수 없습니다.");
+    const sheetName = wb.SheetNames.includes(SHEET_NAME) ? SHEET_NAME : wb.SheetNames[0];
     log(`시트 사용: ${sheetName}`);
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-    const worksheet = workbook.Sheets[sheetName];
-    const allRows = XLSX.utils.sheet_to_json(worksheet, {
-      header: 1,
-      defval: null,
-      raw: false,
-      dateNF: "yyyy-mm-dd",
-    });
-
-    const headerRowIndex = findHeaderRowIndex(allRows);
-    if (headerRowIndex < 0){
-      throw new Error("발주서 헤더 행을 찾지 못했습니다. 주문번호(사방넷), 주문번호(쇼핑몰), 수령인 열을 확인해 주세요.");
+    if (!rows.length){
+      log("데이터가 없습니다.");
+      uploadBtn.disabled = false;
+      return;
     }
 
-    const headerRow = (allRows[headerRowIndex] || []).map(normalizeHeader);
-    const dataRows = allRows
-      .slice(headerRowIndex + 1)
-      .filter(row => row.some(cell => cell !== null && String(cell).trim() !== ""));
+    const headerRow = rows[0].map(h => (h === null ? "" : String(h).trim()));
+    const dataRows = rows.slice(1).filter(r => r.some(cell => cell !== null && cell !== ""));
 
-    if (!dataRows.length) throw new Error("업로드할 주문 데이터가 없습니다.");
     log(`총 ${dataRows.length}건의 데이터 확인됨`);
 
-    const colMap = headerRow.map(header => HEADER_MAP[header] || null);
-    const mappedKeys = new Set(colMap.filter(Boolean));
-    const missingKeys = REQUIRED_KEYS.filter(key => !mappedKeys.has(key));
-
-    if (missingKeys.length){
-      const missingLabels = missingKeys.map(key => LABELS[key] || key);
-      throw new Error(`필수 열이 누락되었습니다: ${missingLabels.join(", ")}`);
-    }
-
-    const unmappedHeaders = headerRow.filter((header, index) => header && !colMap[index]);
-    if (unmappedHeaders.length){
-      log(`ℹ 별도 DB 컬럼 없이 원본 데이터로만 저장되는 열: ${unmappedHeaders.join(", ")}`);
-    }
-
-    const records = dataRows.map(row => {
-      const record = {};
-      const rawData = {};
-
-      headerRow.forEach((header, index) => {
-        if (!header) return;
-        const value = row[index] === undefined ? null : row[index];
-        rawData[header] = value === null ? null : String(value);
-      });
-      record.raw_data = rawData;
-
-      colMap.forEach((key, index) => {
-        if (!key) return;
-        const originalValue = row[index] === undefined ? null : row[index];
-        record[key] = NUMERIC_KEYS.has(key)
-          ? parseNumber(originalValue)
-          : (originalValue === null ? null : String(originalValue).trim());
-      });
-
-      return record;
+    // 검색/조회용으로 미리 알고 있는 컬럼만 별도 매핑 (모르는 열이어도 raw_data에는 전부 저장됨)
+    const colMap = [];
+    headerRow.forEach((h, i) => {
+      colMap[i] = HEADER_MAP[h] || null;
     });
 
-    const { data: batchData, error: batchError } = await supabaseClient
+    const unmapped = headerRow.filter((h, i) => h && !colMap[i]);
+    if (unmapped.length){
+      log(`ℹ 별도 컬럼 매핑은 없지만 원본 그대로 저장되는 열: ${unmapped.join(", ")}`);
+    }
+
+    // 1) 이번 업로드의 헤더 순서를 배치로 기록 (다운로드 시 원본 양식 복원용)
+    const { data: batchData, error: batchErr } = await supabaseClient
       .from(BATCH_TABLE_NAME)
       .insert({
-        filename: selectedFileInfo.name,
-        headers: headerRow.filter(Boolean),
+        filename: selectedFile.name,
+        headers: headerRow.filter(h => h !== ""),
         row_count: dataRows.length,
       })
-      .select("id")
+      .select()
       .single();
+    if (batchErr) throw batchErr;
+    const batchId = batchData.id;
+    log(`배치 생성됨 (batch_id: ${batchId})`);
 
-    if (batchError) throw batchError;
-    batchId = batchData.id;
-    records.forEach(record => { record.batch_id = batchId; });
-    log(`업로드 배치 생성 완료`);
+    // 2) 각 행: raw_data(모든 열 원본 그대로) + 검색용 매핑 컬럼을 함께 저장
+    const records = dataRows.map(r => {
+      const rec = { batch_id: batchId };
+      const raw = {};
 
-    log(`DB 업로드 시작 (한 번에 ${BATCH_SIZE}건)`);
+      headerRow.forEach((h, i) => {
+        if (!h) return; // 헤더 없는 빈 열은 건너뜀
+        let val = r[i];
+        if (val === undefined) val = null;
+        raw[h] = val === null ? null : String(val); // 원본 그대로 보존
+      });
+      rec.raw_data = raw;
+
+      colMap.forEach((key, i) => {
+        if (!key) return;
+        let val = r[i];
+        if (val === undefined) val = null;
+        if (NUMERIC_KEYS.has(key)){
+          const n = Number(val);
+          val = (val === null || val === "" || isNaN(n)) ? null : n;
+        } else if (val !== null) {
+          val = String(val);
+        }
+        rec[key] = val;
+      });
+
+      return rec;
+    });
+
+    if (replaceMode.checked){
+      log("기존 데이터 삭제 중...");
+      const { error: delErr } = await supabaseClient.from(TABLE_NAME).delete().neq("batch_id", batchId);
+      if (delErr) throw delErr;
+      const { error: delBatchErr } = await supabaseClient.from(BATCH_TABLE_NAME).delete().neq("id", batchId);
+      if (delBatchErr) throw delBatchErr;
+      log("기존 데이터 삭제 완료");
+    }
+
+    log(`업로드 시작 (배치 크기: ${BATCH_SIZE})`);
     let uploaded = 0;
-
-    for (let index = 0; index < records.length; index += BATCH_SIZE){
-      const batch = records.slice(index, index + BATCH_SIZE);
+    for (let i = 0; i < records.length; i += BATCH_SIZE){
+      const batch = records.slice(i, i + BATCH_SIZE);
       const { error } = await supabaseClient.from(TABLE_NAME).insert(batch);
       if (error) throw error;
-
       uploaded += batch.length;
       setProgress(Math.round((uploaded / records.length) * 100));
-      log(`${uploaded} / ${records.length}건 업로드 완료`);
+      log(`  ${uploaded} / ${records.length} 건 업로드 완료`);
     }
 
-    // 새 데이터가 정상적으로 모두 올라간 뒤에만 기존 데이터를 제거합니다.
-    if (replaceMode.checked){
-      log("기존 데이터 정리 중...");
-      const { error: oldBatchError } = await supabaseClient
-        .from(BATCH_TABLE_NAME)
-        .delete()
-        .neq("id", batchId);
-      if (oldBatchError) throw oldBatchError;
-
-      // 예전 스키마에서 배치 정보 없이 올라간 행도 정리합니다.
-      const { error: legacyOrderError } = await supabaseClient
-        .from(TABLE_NAME)
-        .delete()
-        .is("batch_id", null);
-      if (legacyOrderError) throw legacyOrderError;
-      log("기존 데이터 정리 완료");
-    }
-
-    setProgress(100);
-    log(`✅ 전체 업로드 완료: ${records.length}건`);
-
-    selectedFileInfo = null;
-    selectedFileBuffer = null;
-    fileNameEl.textContent = "";
-  }catch(error){
-    console.error(error);
-
-    // 부분 업로드가 생기면 해당 배치를 삭제해 정리합니다.
-    if (batchId !== null){
-      const { error: cleanupError } = await supabaseClient
-        .from(BATCH_TABLE_NAME)
-        .delete()
-        .eq("id", batchId);
-      if (cleanupError) console.error("부분 업로드 정리 실패:", cleanupError);
-    }
-
-    log(`❌ 오류 발생: ${error.message || error}`);
+    log(`✅ 전체 업로드 완료: ${uploaded}건 (열 ${headerRow.filter(h=>h).length}개 전부 저장됨)`);
+  }catch(err){
+    console.error(err);
+    log(`❌ 오류 발생: ${err.message || err}`);
   }finally{
-    uploadBtn.disabled = !selectedFileInfo || !selectedFileBuffer;
+    uploadBtn.disabled = false;
   }
 });
 </script>
