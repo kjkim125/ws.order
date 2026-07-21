@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>로그인</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1b2430; --ink-soft:#5b6674; --line:#e2e6eb;
+    --bg:#f6f7f9; --panel:#ffffff; --accent:#2f5d50; --accent-soft:#eaf1ee;
+    --danger:#b3452c; --radius:10px;
+    font-family:"Pretendard","Apple SD Gothic Neo","Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .card{
+    width:100%;max-width:360px;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:32px 28px;
+  }
+  .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:6px;}
+  h1{font-size:22px;margin:0 0 22px;font-weight:800;}
+  label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
+  input{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
+    font-size:15px;outline:none;margin-bottom:16px;transition:border-color .15s;
+  }
+  input:focus{border-color:var(--accent);}
+  button{
+    width:100%;padding:12px;border:none;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+    transition:opacity .15s;
+  }
+  button:hover{opacity:.9;}
+  button:disabled{opacity:.5;cursor:default;}
+  .error{
+    display:none;margin-bottom:14px;padding:10px 12px;font-size:13px;
+    background:#fdf5f2;color:var(--danger);border:1px solid #e7c9bd;border-radius:8px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="eyebrow">Internal Tool</div>
+    <h1>주문 조회 로그인</h1>
+    <div class="error" id="errorBox"></div>
+    <form id="loginForm">
+      <label for="email">이메일</label>
+      <input type="email" id="email" required autocomplete="username" />
+      <label for="password">비밀번호</label>
+      <input type="password" id="password" required autocomplete="current-password" />
+      <button type="submit" id="loginBtn">로그인</button>
+    </form>
+  </div>
+
+<script src="config.js"></script>
+<script>
+const form = document.getElementById("loginForm");
+const errorBox = document.getElementById("errorBox");
+const loginBtn = document.getElementById("loginBtn");
+
+// 이미 로그인되어 있으면 바로 조회 페이지로
+(async () => {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) window.location.href = "index.html";
+})();
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  errorBox.style.display = "none";
+  loginBtn.disabled = true;
+  loginBtn.textContent = "로그인 중...";
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  if (error){
+    errorBox.textContent = "이메일 또는 비밀번호가 올바르지 않습니다.";
+    errorBox.style.display = "block";
+    loginBtn.disabled = false;
+    loginBtn.textContent = "로그인";
+    return;
+  }
+
+  window.location.href = "index.html";
+});
+</script>
+</body>
+</html>
