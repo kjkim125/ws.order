@@ -682,6 +682,14 @@ const PHONE_SEARCH_COLUMNS = [
   "orderer_phone2",
 ];
 
+// 숫자로만 검색할 때는 이름 컬럼 검색을 제외하여 불필요한 전체 스캔을 줄입니다.
+const NUMERIC_SEARCH_COLUMNS = [
+  "order_no_sabangnet",
+  "order_no_mall",
+  "tracking_no",
+  ...PHONE_SEARCH_COLUMNS,
+];
+
 // 결과 테이블에 보여줄 컬럼: A B C D E F G H L M N T V
 const DISPLAY_COLUMNS = [
   "shipped_date",
@@ -1537,7 +1545,11 @@ function buildPhoneSearchVariants(keyword){
 
 function buildKeywordOrFilter(keyword){
   if(!keyword) return "";
-  const filters = new Set(SEARCH_COLUMNS.map(col => makeIlikeFilter(col, keyword)));
+
+  const isDigitsOnly = /^\d+$/.test(keyword);
+  const targetColumns = isDigitsOnly ? NUMERIC_SEARCH_COLUMNS : SEARCH_COLUMNS;
+  const filters = new Set(targetColumns.map(col => makeIlikeFilter(col, keyword)));
+
   buildPhoneSearchVariants(keyword).forEach(variant => {
     PHONE_SEARCH_COLUMNS.forEach(col => filters.add(makeIlikeFilter(col, variant)));
   });
@@ -1561,10 +1573,12 @@ async function runSearch(page=1, options={}){
   setFilterMeta(`${describeCriteria(criteria)} · ${safePage.toLocaleString("ko-KR")}페이지를 조회하고 있습니다.`);
 
   try{
-    // exact count는 대용량 전체 조회에서 timeout이 날 수 있어 planned count를 사용합니다.
+    // 검색어가 있을 때 전체 건수 계산까지 요청하면 다중 ilike 검색이 크게 느려질 수 있습니다.
+    // 화면 조회는 현재 페이지와 다음 페이지 존재 여부만 확인하고, 검색어가 없을 때만 planned count를 사용합니다.
+    const selectOptions = criteria.keyword ? undefined : { count:"planned" };
     let query = supabaseClient
       .from(TABLE_NAME)
-      .select(SEARCH_SELECT_COLUMNS, { count:"planned" })
+      .select(SEARCH_SELECT_COLUMNS, selectOptions)
       .order("id", { ascending:false })
       .range(from, to);
 
@@ -1579,7 +1593,9 @@ async function runSearch(page=1, options={}){
     // 추정 건수가 실제 페이지 위치보다 작게 반환되는 경우를 보완합니다.
     const minimumKnownCount = from + pageRows.length + (canGoNext ? 1 : 0);
     activeCriteria = { ...criteria };
-    activeTotalCount = Math.max(Number(count || 0), minimumKnownCount);
+    activeTotalCount = criteria.keyword
+      ? minimumKnownCount
+      : Math.max(Number(count || 0), minimumKnownCount);
     downloadFilteredBtn.disabled = pageRows.length === 0;
 
     if(!pageRows.length && safePage > 1){
@@ -1613,7 +1629,9 @@ async function runSearch(page=1, options={}){
     renderTable(pageRows, activeTotalCount, safePage, canGoNext);
     setFilterMeta(
       pageRows.length
-        ? `${describeCriteria(criteria)} · 약 ${activeTotalCount.toLocaleString("ko-KR")}건 · ${safePage.toLocaleString("ko-KR")}페이지`
+        ? criteria.keyword
+          ? `${describeCriteria(criteria)} · ${safePage.toLocaleString("ko-KR")}페이지${canGoNext ? " · 다음 결과 있음" : ""}`
+          : `${describeCriteria(criteria)} · 약 ${activeTotalCount.toLocaleString("ko-KR")}건 · ${safePage.toLocaleString("ko-KR")}페이지`
         : `${describeCriteria(criteria)} 조건에 맞는 데이터가 없습니다.`
     );
   }catch(err){
