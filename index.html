@@ -1544,7 +1544,8 @@ function buildKeywordOrFilter(keyword){
   return [...filters].join(",");
 }
 
-async function runSearch(page=1){
+async function runSearch(page=1, options={}){
+  const { skipNumericFallback=false } = options;
   const criteria = getFilterCriteria(searchInput.value);
   const safePage = Math.max(1, Number(page) || 1);
   const from = (safePage - 1) * PAGE_SIZE;
@@ -1583,8 +1584,30 @@ async function runSearch(page=1){
 
     if(!pageRows.length && safePage > 1){
       showNotice("마지막 페이지입니다.");
-      await runSearch(safePage - 1);
+      await runSearch(safePage - 1, { skipNumericFallback:true });
       return;
+    }
+
+    // 첫 페이지 검색 결과가 없고 검색어가 숫자로만 이루어진 경우,
+    // 마지막 숫자 한 자리를 제거하여 다시 검색할지 확인합니다.
+    const numericKeyword = criteria.keyword;
+    const canSuggestShorterNumericSearch =
+      safePage === 1 &&
+      !pageRows.length &&
+      !skipNumericFallback &&
+      /^\d{2,}$/.test(numericKeyword);
+
+    if(canSuggestShorterNumericSearch){
+      const shortenedKeyword = numericKeyword.slice(0, -1);
+      const shouldRetry = window.confirm(
+        `검색 결과가 없습니다.\n\n입력한 숫자 "${numericKeyword}"에서 마지막 자리 한 개를 삭제한 "${shortenedKeyword}"로 다시 검색하시겠습니까?`
+      );
+
+      if(shouldRetry){
+        searchInput.value = shortenedKeyword;
+        await runSearch(1, { skipNumericFallback:true });
+        return;
+      }
     }
 
     renderTable(pageRows, activeTotalCount, safePage, canGoNext);
