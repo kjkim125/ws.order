@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="favicon.ico">
 <title>주문 조회 v2.0</title>
+<link rel="icon" href="favicon.ico" type="image/x-icon" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="config.js"></script>
@@ -482,6 +482,22 @@
     .admin-tools-actions button{flex:1 1 calc(50% - 4px);}
   }
 
+
+  /* 결과 테이블: 열 너비 조절 / 정렬 / 엑셀형 열 필터 */
+  .result-table{table-layout:fixed;min-width:1500px;}
+  .result-table th{position:relative;overflow:visible;padding:8px 10px;vertical-align:top;}
+  .table-head-main{display:flex;align-items:center;gap:5px;min-height:24px;white-space:nowrap;}
+  .table-head-label{overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;}
+  .sort-btn{padding:2px 4px!important;min-width:22px;background:transparent!important;color:var(--accent)!important;border:0!important;font-size:12px!important;line-height:1!important;}
+  .sort-btn:hover{background:#dce9e4!important;opacity:1!important;}
+  .column-filter{width:100%;height:28px;margin-top:5px;padding:4px 7px;border:1px solid #cdded7;border-radius:6px;background:#fff;font-size:11px;outline:none;}
+  .column-filter:focus{border-color:var(--accent);}
+  .resize-handle{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:5;user-select:none;}
+  .resize-handle:hover,.resize-handle.active{background:rgba(47,93,80,.28);}
+  .table-filter-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--ink-soft);}
+  .table-filter-toolbar button{padding:6px 10px;font-size:12px;}
+  .filter-active-count{color:var(--accent);font-weight:700;}
+
 </style>
 </head>
 <body>
@@ -613,7 +629,6 @@
       검색 결과 <strong id="resultCount">0</strong>건 <span id="resultLimitNote"></span> · 선택 <strong id="selectedCount">0</strong>건
     </div>
     <div class="selection-tools">
-      <span class="hint">체크한 행은 Ctrl/Cmd + C로 원본 전체 행 복사</span>
       <button id="copySelectedBtn" class="ghost compact" type="button" disabled>원본 전체 행 복사</button>
       <button id="downloadSelectedBtn" class="ghost compact" type="button" disabled>선택 행 엑셀 다운로드</button>
       <button id="downloadFilteredBtn" class="ghost compact" type="button" disabled title="현재 조회 조건에 맞는 전체 결과를 다운로드합니다. 화면 표시 200건 제한과 무관합니다.">전체 결과 엑셀 다운로드</button>
@@ -768,6 +783,10 @@ const NUMERIC_KEYS = new Set(["quantity", "payment_amount"]);
 const SHEET_NAME = "발주서";
 const BATCH_SIZE = 200;
 const ADMIN_ROLE = "admin";
+// Supabase 메타데이터에 role이 아직 설정되지 않은 운영 관리자 계정도 허용합니다.
+const ADMIN_EMAILS = new Set([
+  "kj.kim@whitesands.co.kr",
+]);
 const DEDUPE_QUERY_CHUNK = 120;
 /* ========================================================= */
 
@@ -780,8 +799,9 @@ function renderSignedInUser(session){
   if(!container) return;
 
   const email = session?.user?.email || "로그인 사용자";
+  const normalizedEmail = String(email).trim().toLowerCase();
   const role = session?.user?.app_metadata?.role || session?.user?.user_metadata?.role || "";
-  isAdminUser = role === ADMIN_ROLE;
+  isAdminUser = role === ADMIN_ROLE || ADMIN_EMAILS.has(normalizedEmail);
   container.innerHTML = `
     <span style="font-size:13px;color:#5b6674;">${escapeHtml(email)}</span>
     ${isAdminUser ? '<span class="admin-badge">관리자</span>' : ''}
@@ -1240,22 +1260,11 @@ function renderTable(rows, totalCount=rows.length, page=1, canGoNext=false){
 
   currentRows = rows;
   selectedRowIds.clear();
-  const columns = DISPLAY_COLUMNS.length ? DISPLAY_COLUMNS : Object.keys(rows[0]);
-
-  const thead = `<thead><tr>
-    <th class="select-cell"><input type="checkbox" id="selectAllRows" aria-label="검색 결과 전체 선택" /></th>
-    ${columns.map(c => `<th>${escapeHtml(LABELS[c] || c)}</th>`).join("")}
-  </tr></thead>`;
-
-  const tbody = `<tbody>${rows.map(row => {
-    const rowId = String(row.id);
-    return `<tr data-row-id="${escapeHtml(rowId)}">
-      <td class="select-cell"><input type="checkbox" class="row-check" data-row-id="${escapeHtml(rowId)}" aria-label="이 행 선택" /></td>
-      ${columns.map(c => `<td>${escapeHtml(row[c] ?? "")}</td>`).join("")}
-    </tr>`;
-  }).join("")}</tbody>`;
-
-  resultArea.innerHTML = `<div class="table-scroll"><table>${thead}${tbody}</table></div>`;
+  currentPage = page;
+  hasNextPage = canGoNext;
+  tableSortState = { column:"", direction:"" };
+  tableColumnFilters = {};
+  renderInteractiveTable();
 
   metaRow.style.display = "flex";
   resultCount.textContent = Number(totalCount || 0).toLocaleString("ko-KR");
@@ -1265,15 +1274,134 @@ function renderTable(rows, totalCount=rows.length, page=1, canGoNext=false){
     resultLimitNote.textContent = ` (${startNo.toLocaleString("ko-KR")}~${endNo.toLocaleString("ko-KR")}건 표시)`;
   }
 
-  currentPage = page;
-  hasNextPage = canGoNext;
   pagination.style.display = "flex";
   paginationInfo.innerHTML = `<strong>${page.toLocaleString("ko-KR")}</strong>페이지 · 페이지당 ${PAGE_SIZE.toLocaleString("ko-KR")}건`;
   prevPageBtn.disabled = page <= 1;
   nextPageBtn.disabled = !canGoNext;
+}
 
-  updateSelectionUI();
+let tableSortState = { column:"", direction:"" };
+let tableColumnFilters = {};
+const tableColumnWidths = {};
+
+function compareTableValues(a, b, column){
+  const av = a?.[column] ?? "";
+  const bv = b?.[column] ?? "";
+  const an = Number(String(av).replaceAll(",", ""));
+  const bn = Number(String(bv).replaceAll(",", ""));
+  if(String(av).trim() !== "" && String(bv).trim() !== "" && Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
+  return String(av).localeCompare(String(bv), "ko-KR", { numeric:true, sensitivity:"base" });
+}
+
+function getVisibleTableRows(){
+  let rows = currentRows.filter(row => DISPLAY_COLUMNS.every(column => {
+    const filter = String(tableColumnFilters[column] || "").trim().toLowerCase();
+    return !filter || String(row[column] ?? "").toLowerCase().includes(filter);
+  }));
+  if(tableSortState.column && tableSortState.direction){
+    const multiplier = tableSortState.direction === "asc" ? 1 : -1;
+    rows = [...rows].sort((a,b) => compareTableValues(a,b,tableSortState.column) * multiplier);
+  }
+  return rows;
+}
+
+function renderInteractiveTable(){
+  const columns = DISPLAY_COLUMNS.length ? DISPLAY_COLUMNS : Object.keys(currentRows[0] || {});
+  const rows = getVisibleTableRows();
+  const activeFilterCount = Object.values(tableColumnFilters).filter(v => String(v || "").trim()).length;
+
+  const thead = `<thead><tr>
+    <th class="select-cell" style="width:42px"><input type="checkbox" id="selectAllRows" aria-label="현재 표시 행 전체 선택" /></th>
+    ${columns.map(c => {
+      const direction = tableSortState.column === c ? tableSortState.direction : "";
+      const icon = direction === "asc" ? "▲" : direction === "desc" ? "▼" : "↕";
+      const width = tableColumnWidths[c] || (c === "product_name" || c === "option_collected" ? 260 : 145);
+      return `<th data-column="${escapeHtml(c)}" style="width:${width}px;min-width:${width}px;max-width:${width}px">
+        <div class="table-head-main">
+          <span class="table-head-label" title="${escapeHtml(LABELS[c] || c)}">${escapeHtml(LABELS[c] || c)}</span>
+          <button type="button" class="sort-btn" data-sort-column="${escapeHtml(c)}" title="오름차순/내림차순 정렬">${icon}</button>
+        </div>
+        <input class="column-filter" data-filter-column="${escapeHtml(c)}" value="${escapeHtml(tableColumnFilters[c] || "")}" placeholder="필터" aria-label="${escapeHtml(LABELS[c] || c)} 열 필터" />
+        <span class="resize-handle" data-resize-column="${escapeHtml(c)}" title="드래그하여 열 너비 조절"></span>
+      </th>`;
+    }).join("")}
+  </tr></thead>`;
+
+  const tbody = rows.length ? `<tbody>${rows.map(row => {
+    const rowId = String(row.id);
+    const checked = selectedRowIds.has(rowId);
+    return `<tr data-row-id="${escapeHtml(rowId)}" class="${checked ? "selected" : ""}">
+      <td class="select-cell"><input type="checkbox" class="row-check" data-row-id="${escapeHtml(rowId)}" ${checked ? "checked" : ""} aria-label="이 행 선택" /></td>
+      ${columns.map(c => `<td>${escapeHtml(row[c] ?? "")}</td>`).join("")}
+    </tr>`;
+  }).join("")}</tbody>` : `<tbody><tr><td colspan="${columns.length + 1}" style="padding:28px;text-align:center;color:var(--ink-soft)">열 필터 조건에 맞는 결과가 없습니다.</td></tr></tbody>`;
+
+  resultArea.innerHTML = `
+    <div class="table-filter-toolbar">
+      <span>현재 페이지 내 필터</span>
+      <span class="filter-active-count">${activeFilterCount ? `${activeFilterCount}개 적용 · ${rows.length}건 표시` : `${rows.length}건 표시`}</span>
+      <button id="clearColumnFiltersBtn" type="button" class="ghost compact" ${activeFilterCount ? "" : "disabled"}>열 필터 초기화</button>
+    </div>
+    <div class="table-scroll"><table class="result-table">${thead}${tbody}</table></div>`;
+
   bindSelectionEvents();
+  bindTableHeaderEvents();
+  updateSelectionUI();
+}
+
+function bindTableHeaderEvents(){
+  document.querySelectorAll(".sort-btn").forEach(button => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.sortColumn;
+      if(tableSortState.column !== column) tableSortState = { column, direction:"asc" };
+      else if(tableSortState.direction === "asc") tableSortState.direction = "desc";
+      else if(tableSortState.direction === "desc") tableSortState = { column:"", direction:"" };
+      else tableSortState = { column, direction:"asc" };
+      renderInteractiveTable();
+    });
+  });
+
+  document.querySelectorAll(".column-filter").forEach(input => {
+    input.addEventListener("input", () => {
+      tableColumnFilters[input.dataset.filterColumn] = input.value;
+      const cursor = input.selectionStart;
+      renderInteractiveTable();
+      const next = document.querySelector(`.column-filter[data-filter-column="${CSS.escape(input.dataset.filterColumn)}"]`);
+      next?.focus();
+      try{ next?.setSelectionRange(cursor, cursor); }catch(_){ }
+    });
+    input.addEventListener("keydown", e => e.stopPropagation());
+  });
+
+  document.getElementById("clearColumnFiltersBtn")?.addEventListener("click", () => {
+    tableColumnFilters = {};
+    renderInteractiveTable();
+  });
+
+  document.querySelectorAll(".resize-handle").forEach(handle => {
+    handle.addEventListener("mousedown", event => {
+      event.preventDefault();
+      const column = handle.dataset.resizeColumn;
+      const th = handle.closest("th");
+      const startX = event.clientX;
+      const startWidth = th.getBoundingClientRect().width;
+      handle.classList.add("active");
+      const onMove = moveEvent => {
+        tableColumnWidths[column] = Math.max(70, Math.round(startWidth + moveEvent.clientX - startX));
+        const width = tableColumnWidths[column];
+        th.style.width = `${width}px`;
+        th.style.minWidth = `${width}px`;
+        th.style.maxWidth = `${width}px`;
+      };
+      const onUp = () => {
+        handle.classList.remove("active");
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+  });
 }
 
 function bindSelectionEvents(){
@@ -1672,9 +1800,9 @@ document.addEventListener("keydown", (e) => {
 
   const active = document.activeElement;
   const isEditing = active && (
-    active.tagName === "INPUT" ||
     active.tagName === "TEXTAREA" ||
-    active.isContentEditable
+    active.isContentEditable ||
+    (active.tagName === "INPUT" && !["checkbox", "radio", "button"].includes((active.type || "text").toLowerCase()))
   );
   const hasTextSelection = Boolean(window.getSelection()?.toString());
 
