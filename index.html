@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>주문 조회 v2.0</title>
+<title>주문 관리 v4.0 Final</title>
 <link rel="icon" href="favicon.ico" type="image/x-icon" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -372,6 +372,19 @@
   }
 
 
+  .template-download-link{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-height:34px;padding:7px 11px;border-radius:8px;
+    border:1px solid #cdded7;background:var(--accent-soft);
+    color:var(--accent);font-size:12px;font-weight:800;text-decoration:none;
+  }
+  .template-download-link:hover{background:#dfeae5;}
+  .upload-check-summary{
+    margin-top:14px;padding:14px;border:1px solid #cdded7;border-radius:10px;
+    background:var(--accent-soft);font-size:13px;line-height:1.65;color:var(--ink);
+  }
+  .upload-check-summary strong{color:var(--accent);}
+
   /* 출고일 누락 시 날짜 선택 모달 */
   .date-modal-backdrop{
     position:fixed;inset:0;z-index:1000;
@@ -475,7 +488,9 @@
   button.danger-soft:hover{background:#fceee9;opacity:1;}
   .admin-tools-note{margin-top:10px;font-size:11px;color:var(--ink-soft);line-height:1.5;}
   .history-delete-btn{padding:6px 10px!important;font-size:12px!important;white-space:nowrap;}
+  .history-table .download-col{width:92px;text-align:center;}
   .history-table .action-col{width:112px;text-align:center;}
+  .history-download-btn{padding:6px 10px!important;font-size:12px!important;white-space:nowrap;}
   @media(max-width:720px){
     .admin-tools-head{align-items:flex-start;flex-direction:column;}
     .admin-tools-actions{width:100%;}
@@ -483,20 +498,63 @@
   }
 
 
-  /* 결과 테이블: 열 너비 조절 / 정렬 / 엑셀형 열 필터 */
+  /* 결과 테이블: 구글시트형 헤더 필터 / 열 너비 조절 */
   .result-table{table-layout:fixed;min-width:1500px;}
-  .result-table th{position:relative;overflow:visible;padding:8px 10px;vertical-align:top;}
-  .table-head-main{display:flex;align-items:center;gap:5px;min-height:24px;white-space:nowrap;}
-  .table-head-label{overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;}
-  .sort-btn{padding:2px 4px!important;min-width:22px;background:transparent!important;color:var(--accent)!important;border:0!important;font-size:12px!important;line-height:1!important;}
-  .sort-btn:hover{background:#dce9e4!important;opacity:1!important;}
-  .column-filter{width:100%;height:28px;margin-top:5px;padding:4px 7px;border:1px solid #cdded7;border-radius:6px;background:#fff;font-size:11px;outline:none;}
-  .column-filter:focus{border-color:var(--accent);}
-  .resize-handle{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:5;user-select:none;}
+  .result-table th{position:relative;overflow:visible;padding:0;vertical-align:middle;height:42px;}
+  .sheet-head{display:flex;align-items:center;gap:4px;height:42px;padding:0 8px;white-space:nowrap;}
+  .sheet-head-label{overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;font-weight:800;}
+  .sheet-filter-btn{
+    width:26px;height:26px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;
+    flex:0 0 auto;background:transparent!important;color:var(--accent)!important;border:0!important;
+    border-radius:5px!important;font-size:15px!important;line-height:1!important;
+  }
+  .sheet-filter-btn:hover,.sheet-filter-btn.active{background:#d8e6e0!important;opacity:1!important;}
+  .sheet-filter-btn.filtered{background:var(--accent)!important;color:#fff!important;}
+  .resize-handle{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:8;user-select:none;}
   .resize-handle:hover,.resize-handle.active{background:rgba(47,93,80,.28);}
-  .table-filter-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--ink-soft);}
+  .table-filter-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 8px;font-size:12px;color:var(--ink-soft);}
+  .table-filter-toolbar-actions{display:flex;align-items:center;gap:8px;}
   .table-filter-toolbar button{padding:6px 10px;font-size:12px;}
   .filter-active-count{color:var(--accent);font-weight:700;}
+  .sheet-filter-menu{
+    position:fixed;z-index:12000;width:270px;max-height:420px;display:none;
+    background:#fff;border:1px solid #cfd8d4;border-radius:8px;
+    box-shadow:0 14px 38px rgba(15,26,23,.22);overflow:hidden;
+  }
+  .sheet-filter-menu.open{display:block;}
+  .sheet-filter-sort{padding:8px;border-bottom:1px solid var(--line);display:grid;gap:4px;}
+  .sheet-filter-sort button{width:100%;padding:9px 10px;text-align:left;background:#fff;color:var(--ink);border:0;border-radius:5px;font-size:13px;}
+  .sheet-filter-sort button:hover{background:var(--accent-soft);opacity:1;}
+  .sheet-filter-search-wrap{padding:8px;border-bottom:1px solid var(--line);}
+  .sheet-filter-search{width:100%;height:34px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;outline:none;}
+  .sheet-filter-search:focus{border-color:var(--accent);}
+  .sheet-filter-check-actions{display:flex;gap:6px;padding:7px 8px;border-bottom:1px solid var(--line);}
+  .sheet-filter-check-actions button{flex:1;padding:6px 8px;font-size:11px;background:#fff;color:var(--accent);border:1px solid var(--line);}
+  .sheet-filter-values{max-height:210px;overflow:auto;padding:5px 8px;}
+  .sheet-filter-option{display:flex;align-items:center;gap:7px;padding:6px 3px;font-size:12px;cursor:pointer;}
+  .sheet-filter-option:hover{background:#f5f8f7;}
+  .sheet-filter-option input{width:15px;height:15px;accent-color:var(--accent);}
+  .sheet-filter-option span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sheet-filter-footer{display:flex;justify-content:flex-end;gap:7px;padding:9px;border-top:1px solid var(--line);background:#fafbfc;}
+  .sheet-filter-footer button{padding:7px 11px;font-size:12px;}
+  .sheet-filter-footer .cancel{background:#fff;color:var(--ink-soft);border:1px solid var(--line);}
+
+  /* 상단 UI 정리 */
+  .top-header{align-items:center;margin-bottom:16px;}
+  .user-area{flex-wrap:wrap;}
+  .latest-upload{margin:0 0 16px;grid-template-columns:minmax(320px,1fr) minmax(620px,auto);}
+  .panel.search-panel{padding:14px 16px;}
+  .search-row{display:grid;grid-template-columns:minmax(320px,1fr) auto auto auto;gap:10px;align-items:center;}
+  .search-row input[type="text"]{width:100%;min-width:0;}
+  @media(max-width:1050px){
+    .latest-upload{grid-template-columns:1fr;}
+    .search-row{grid-template-columns:1fr auto;}
+    .search-row #toggleUploadBtn,.search-row #toggleHistoryBtn{grid-row:2;}
+  }
+  @media(max-width:620px){
+    .search-row{grid-template-columns:1fr;}
+    .search-row button{width:100%;}
+  }
 
 </style>
 </head>
@@ -504,8 +562,8 @@
 <div class="wrap">
   <header class="top-header">
     <div class="header-title">
-      <div class="eyebrow">ORDER MANAGER · v2.0</div>
-      <h1>주문 조회</h1>
+      <div class="eyebrow">ORDER MANAGER · v4.0 FINAL</div>
+      <h1>주문 관리</h1>
       <p>검색어를 입력하면 일치하는 주문 데이터를 보여줍니다.</p>
     </div>
     <div id="userBar" class="user-area"></div>
@@ -546,7 +604,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel search-panel">
     <div class="search-row">
       <input type="text" id="searchInput" placeholder="예: 주문번호, 수령인, 운송장번호, 연락처 등으로 검색" />
       <button id="searchBtn">조회</button>
@@ -558,7 +616,11 @@
   <!-- 업로드 패널 (버튼 클릭 시 노출) -->
   <div class="panel" id="uploadPanel">
     <h2 style="font-size:16px;margin:0 0 4px;">주문 데이터 업로드</h2>
-    <p style="margin:0 0 16px;color:var(--ink-soft);font-size:13px;">발주서 형식의 엑셀 파일(.xlsx)을 업로드하면 DB에 저장됩니다. 1행은 머리글로 인식하고 실제 데이터는 2행부터 검사합니다.</p>
+    <p style="margin:0 0 10px;color:var(--ink-soft);font-size:13px;">엑셀 파일(.xlsx)을 업로드하면 모든 시트의 상단 10개 행을 검사하여 주문 데이터 헤더를 자동으로 찾습니다. 시트명과 시트 개수는 상관없습니다.</p>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px;">
+      <a href="order_upload_template.xlsx" download="화이트샌즈_표준_발주서.xlsx" class="template-download-link">표준 발주서 양식 다운로드</a>
+      <span style="color:var(--ink-soft);font-size:12px;">양식이 다른 경우 내려받아 데이터를 옮긴 후 업로드해 주세요.</span>
+    </div>
 
     <div class="drop" id="dropZone">
       <div>엑셀 파일(.xlsx)을 이곳에 드래그하거나 클릭해서 선택하세요</div>
@@ -629,6 +691,7 @@
       검색 결과 <strong id="resultCount">0</strong>건 <span id="resultLimitNote"></span> · 선택 <strong id="selectedCount">0</strong>건
     </div>
     <div class="selection-tools">
+      <span class="hint">체크한 행은 Ctrl/Cmd + C로 원본 전체 행 복사</span>
       <button id="copySelectedBtn" class="ghost compact" type="button" disabled>원본 전체 행 복사</button>
       <button id="downloadSelectedBtn" class="ghost compact" type="button" disabled>선택 행 엑셀 다운로드</button>
       <button id="downloadFilteredBtn" class="ghost compact" type="button" disabled title="현재 조회 조건에 맞는 전체 결과를 다운로드합니다. 화면 표시 200건 제한과 무관합니다.">전체 결과 엑셀 다운로드</button>
@@ -647,9 +710,11 @@
     <button id="nextPageBtn" class="ghost compact" type="button">다음</button>
   </div>
 
-  <footer>Powered by Supabase</footer>
+  <footer>WHITE SANDS ORDER MANAGER · v4.0 FINAL · Powered by Supabase</footer>
 </div>
 
+
+<div id="sheetFilterMenu" class="sheet-filter-menu" role="dialog" aria-label="열 필터 메뉴"></div>
 
 <div id="duplicateModalBackdrop" class="duplicate-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="duplicateModalTitle">
   <div class="duplicate-modal">
@@ -779,8 +844,75 @@ const HEADER_MAP = {
   "주문자전화번호2": "orderer_phone2",
   "미출고": "not_shipped",
 };
+
+
+// 외부 발주서마다 생길 수 있는 헤더 표기 차이를 표준 컬럼명으로 통합합니다.
+const HEADER_ALIASES = {
+  shipped_date: ["출고일", "출고날짜", "출고일자", "배송일", "배송일자", "발송일", "발송일자"],
+  order_no_sabangnet: ["주문번호(사방넷)", "사방넷주문번호", "사방넷 주문번호"],
+  order_no_mall: ["주문번호(쇼핑몰)", "쇼핑몰주문번호", "쇼핑몰 주문번호", "외부주문번호"],
+  mall: ["쇼핑몰", "판매처", "몰명"],
+  receiver_name: ["수령인", "받는분", "받는사람", "수취인"],
+  courier: ["택배사", "배송사"],
+  tracking_no: ["운송장번호", "송장번호", "운송장", "송장"],
+  receiver_phone: ["받는분연락처", "수령인연락처", "수취인연락처", "받는사람연락처"],
+  product_name: ["상품명", "제품명", "품목명"],
+  quantity: ["수량", "주문수량"],
+  payment_amount: ["결제금액", "판매금액", "주문금액"],
+  product_color_code: ["상품컬러코드", "컬러코드", "색상코드"],
+  option_collected: ["옵션(수집)", "옵션", "옵션명"]
+};
+
+function normalizeHeaderText(value){
+  return String(value ?? "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\r?\n/g, "")
+    .replace(/\s+/g, "")
+    .replace(/[·ㆍ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+const NORMALIZED_HEADER_MAP = (() => {
+  const map = new Map();
+  Object.entries(HEADER_MAP).forEach(([label, key]) => map.set(normalizeHeaderText(label), key));
+  Object.entries(HEADER_ALIASES).forEach(([key, labels]) => {
+    labels.forEach(label => map.set(normalizeHeaderText(label), key));
+  });
+  return map;
+})();
+
+function resolveHeaderKey(value){
+  return NORMALIZED_HEADER_MAP.get(normalizeHeaderText(value)) || null;
+}
+
+function inspectWorkbookForOrderSheet(workbook){
+  const candidates = [];
+  for(const sheetName of workbook.SheetNames){
+    const ws = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+    const scanCount = Math.min(rows.length, HEADER_SCAN_ROWS);
+    for(let rowIndex=0; rowIndex<scanCount; rowIndex += 1){
+      const row = rows[rowIndex] || [];
+      const keys = row.map(resolveHeaderKey);
+      const uniqueKeys = new Set(keys.filter(Boolean));
+      const hasOrderId = uniqueKeys.has("order_no_sabangnet") || uniqueKeys.has("order_no_mall");
+      const hasCoreData = uniqueKeys.has("receiver_name") || uniqueKeys.has("tracking_no") || uniqueKeys.has("product_name");
+      // 주문 식별자와 주문 데이터 컬럼이 함께 있어야 후보로 인정합니다.
+      if(!hasOrderId || !hasCoreData) continue;
+      let score = uniqueKeys.size * 10;
+      if(uniqueKeys.has("shipped_date")) score += 50;
+      if(uniqueKeys.has("tracking_no")) score += 8;
+      if(uniqueKeys.has("product_name")) score += 8;
+      candidates.push({ sheetName, ws, rows, headerRowIndex:rowIndex, keys, uniqueKeys, score });
+    }
+  }
+  candidates.sort((a,b) => b.score - a.score || a.headerRowIndex - b.headerRowIndex);
+  return candidates[0] || null;
+}
+
 const NUMERIC_KEYS = new Set(["quantity", "payment_amount"]);
-const SHEET_NAME = "발주서";
+const HEADER_SCAN_ROWS = 10;
 const BATCH_SIZE = 200;
 const ADMIN_ROLE = "admin";
 // Supabase 메타데이터에 role이 아직 설정되지 않은 운영 관리자 계정도 허용합니다.
@@ -1283,6 +1415,8 @@ function renderTable(rows, totalCount=rows.length, page=1, canGoNext=false){
 let tableSortState = { column:"", direction:"" };
 let tableColumnFilters = {};
 const tableColumnWidths = {};
+let activeSheetFilterColumn = "";
+let draftSheetFilterValues = new Set();
 
 function compareTableValues(a, b, column){
   const av = a?.[column] ?? "";
@@ -1293,10 +1427,21 @@ function compareTableValues(a, b, column){
   return String(av).localeCompare(String(bv), "ko-KR", { numeric:true, sensitivity:"base" });
 }
 
+function normalizeFilterValue(value){
+  const text = String(value ?? "").trim();
+  return text || "(빈 값)";
+}
+
+function getColumnUniqueValues(column){
+  return [...new Set(currentRows.map(row => normalizeFilterValue(row[column])))]
+    .sort((a,b) => a.localeCompare(b, "ko-KR", { numeric:true, sensitivity:"base" }));
+}
+
 function getVisibleTableRows(){
   let rows = currentRows.filter(row => DISPLAY_COLUMNS.every(column => {
-    const filter = String(tableColumnFilters[column] || "").trim().toLowerCase();
-    return !filter || String(row[column] ?? "").toLowerCase().includes(filter);
+    const selectedValues = tableColumnFilters[column];
+    if(!(selectedValues instanceof Set) || selectedValues.size === 0) return true;
+    return selectedValues.has(normalizeFilterValue(row[column]));
   }));
   if(tableSortState.column && tableSortState.direction){
     const multiplier = tableSortState.direction === "asc" ? 1 : -1;
@@ -1308,20 +1453,20 @@ function getVisibleTableRows(){
 function renderInteractiveTable(){
   const columns = DISPLAY_COLUMNS.length ? DISPLAY_COLUMNS : Object.keys(currentRows[0] || {});
   const rows = getVisibleTableRows();
-  const activeFilterCount = Object.values(tableColumnFilters).filter(v => String(v || "").trim()).length;
+  const activeFilterCount = Object.values(tableColumnFilters).filter(v => v instanceof Set && v.size > 0).length;
 
   const thead = `<thead><tr>
-    <th class="select-cell" style="width:42px"><input type="checkbox" id="selectAllRows" aria-label="현재 표시 행 전체 선택" /></th>
+    <th class="select-cell" style="width:42px;min-width:42px;max-width:42px"><input type="checkbox" id="selectAllRows" aria-label="현재 표시 행 전체 선택" /></th>
     ${columns.map(c => {
-      const direction = tableSortState.column === c ? tableSortState.direction : "";
-      const icon = direction === "asc" ? "▲" : direction === "desc" ? "▼" : "↕";
       const width = tableColumnWidths[c] || (c === "product_name" || c === "option_collected" ? 260 : 145);
+      const filtered = tableColumnFilters[c] instanceof Set && tableColumnFilters[c].size > 0;
+      const sorted = tableSortState.column === c ? tableSortState.direction : "";
+      const icon = filtered ? "▾" : sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : "≡";
       return `<th data-column="${escapeHtml(c)}" style="width:${width}px;min-width:${width}px;max-width:${width}px">
-        <div class="table-head-main">
-          <span class="table-head-label" title="${escapeHtml(LABELS[c] || c)}">${escapeHtml(LABELS[c] || c)}</span>
-          <button type="button" class="sort-btn" data-sort-column="${escapeHtml(c)}" title="오름차순/내림차순 정렬">${icon}</button>
+        <div class="sheet-head">
+          <span class="sheet-head-label" title="${escapeHtml(LABELS[c] || c)}">${escapeHtml(LABELS[c] || c)}</span>
+          <button type="button" class="sheet-filter-btn ${filtered ? "filtered" : ""}" data-filter-menu-column="${escapeHtml(c)}" title="정렬 및 필터">${icon}</button>
         </div>
-        <input class="column-filter" data-filter-column="${escapeHtml(c)}" value="${escapeHtml(tableColumnFilters[c] || "")}" placeholder="필터" aria-label="${escapeHtml(LABELS[c] || c)} 열 필터" />
         <span class="resize-handle" data-resize-column="${escapeHtml(c)}" title="드래그하여 열 너비 조절"></span>
       </th>`;
     }).join("")}
@@ -1334,13 +1479,15 @@ function renderInteractiveTable(){
       <td class="select-cell"><input type="checkbox" class="row-check" data-row-id="${escapeHtml(rowId)}" ${checked ? "checked" : ""} aria-label="이 행 선택" /></td>
       ${columns.map(c => `<td>${escapeHtml(row[c] ?? "")}</td>`).join("")}
     </tr>`;
-  }).join("")}</tbody>` : `<tbody><tr><td colspan="${columns.length + 1}" style="padding:28px;text-align:center;color:var(--ink-soft)">열 필터 조건에 맞는 결과가 없습니다.</td></tr></tbody>`;
+  }).join("")}</tbody>` : `<tbody><tr><td colspan="${columns.length + 1}" style="padding:28px;text-align:center;color:var(--ink-soft)">필터 조건에 맞는 결과가 없습니다.</td></tr></tbody>`;
 
   resultArea.innerHTML = `
     <div class="table-filter-toolbar">
-      <span>현재 페이지 내 필터</span>
-      <span class="filter-active-count">${activeFilterCount ? `${activeFilterCount}개 적용 · ${rows.length}건 표시` : `${rows.length}건 표시`}</span>
-      <button id="clearColumnFiltersBtn" type="button" class="ghost compact" ${activeFilterCount ? "" : "disabled"}>열 필터 초기화</button>
+      <span>헤더의 메뉴 버튼에서 정렬·필터를 설정할 수 있습니다.</span>
+      <div class="table-filter-toolbar-actions">
+        <span class="filter-active-count">${activeFilterCount ? `${activeFilterCount}개 필터 적용 · ${rows.length}건 표시` : `${rows.length}건 표시`}</span>
+        <button id="clearColumnFiltersBtn" type="button" class="ghost compact" ${activeFilterCount || tableSortState.column ? "" : "disabled"}>정렬·필터 초기화</button>
+      </div>
     </div>
     <div class="table-scroll"><table class="result-table">${thead}${tbody}</table></div>`;
 
@@ -1349,38 +1496,113 @@ function renderInteractiveTable(){
   updateSelectionUI();
 }
 
-function bindTableHeaderEvents(){
-  document.querySelectorAll(".sort-btn").forEach(button => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.sortColumn;
-      if(tableSortState.column !== column) tableSortState = { column, direction:"asc" };
-      else if(tableSortState.direction === "asc") tableSortState.direction = "desc";
-      else if(tableSortState.direction === "desc") tableSortState = { column:"", direction:"" };
-      else tableSortState = { column, direction:"asc" };
-      renderInteractiveTable();
+function closeSheetFilterMenu(){
+  const menu = document.getElementById("sheetFilterMenu");
+  menu?.classList.remove("open");
+  document.querySelectorAll(".sheet-filter-btn.active").forEach(btn => btn.classList.remove("active"));
+  activeSheetFilterColumn = "";
+}
+
+function renderSheetFilterValues(searchText=""){
+  const menu = document.getElementById("sheetFilterMenu");
+  const container = menu?.querySelector(".sheet-filter-values");
+  if(!container || !activeSheetFilterColumn) return;
+  const query = String(searchText || "").trim().toLowerCase();
+  const values = getColumnUniqueValues(activeSheetFilterColumn).filter(value => !query || value.toLowerCase().includes(query));
+  container.innerHTML = values.length ? values.map(value => `
+    <label class="sheet-filter-option">
+      <input type="checkbox" class="sheet-value-check" value="${escapeHtml(value)}" ${draftSheetFilterValues.has(value) ? "checked" : ""} />
+      <span title="${escapeHtml(value)}">${escapeHtml(value)}</span>
+    </label>`).join("") : `<div style="padding:16px 6px;color:var(--ink-soft);font-size:12px;text-align:center">일치하는 값이 없습니다.</div>`;
+  container.querySelectorAll(".sheet-value-check").forEach(check => {
+    check.addEventListener("change", () => {
+      if(check.checked) draftSheetFilterValues.add(check.value);
+      else draftSheetFilterValues.delete(check.value);
     });
   });
+}
 
-  document.querySelectorAll(".column-filter").forEach(input => {
-    input.addEventListener("input", () => {
-      tableColumnFilters[input.dataset.filterColumn] = input.value;
-      const cursor = input.selectionStart;
-      renderInteractiveTable();
-      const next = document.querySelector(`.column-filter[data-filter-column="${CSS.escape(input.dataset.filterColumn)}"]`);
-      next?.focus();
-      try{ next?.setSelectionRange(cursor, cursor); }catch(_){ }
+function openSheetFilterMenu(button, column){
+  const menu = document.getElementById("sheetFilterMenu");
+  if(!menu) return;
+  document.querySelectorAll(".sheet-filter-btn.active").forEach(btn => btn.classList.remove("active"));
+  button.classList.add("active");
+  activeSheetFilterColumn = column;
+  const existing = tableColumnFilters[column];
+  draftSheetFilterValues = existing instanceof Set ? new Set(existing) : new Set();
+  const label = LABELS[column] || column;
+  menu.innerHTML = `
+    <div class="sheet-filter-sort">
+      <button type="button" data-sheet-sort="asc">▲ ${escapeHtml(label)} 오름차순 정렬</button>
+      <button type="button" data-sheet-sort="desc">▼ ${escapeHtml(label)} 내림차순 정렬</button>
+      <button type="button" data-sheet-sort="clear">정렬 해제</button>
+    </div>
+    <div class="sheet-filter-search-wrap"><input class="sheet-filter-search" type="text" placeholder="값 검색" /></div>
+    <div class="sheet-filter-check-actions">
+      <button type="button" data-check-action="all">전체 선택</button>
+      <button type="button" data-check-action="none">전체 해제</button>
+    </div>
+    <div class="sheet-filter-values"></div>
+    <div class="sheet-filter-footer">
+      <button type="button" class="cancel" data-sheet-cancel>취소</button>
+      <button type="button" data-sheet-apply>적용</button>
+    </div>`;
+  renderSheetFilterValues();
+  const rect = button.getBoundingClientRect();
+  const menuWidth = 270;
+  let left = Math.min(rect.left, window.innerWidth - menuWidth - 12);
+  let top = rect.bottom + 5;
+  if(top + 420 > window.innerHeight) top = Math.max(12, rect.top - 420);
+  menu.style.left = `${Math.max(8,left)}px`;
+  menu.style.top = `${top}px`;
+  menu.classList.add("open");
+
+  menu.querySelector(".sheet-filter-search")?.addEventListener("input", e => renderSheetFilterValues(e.target.value));
+  menu.querySelectorAll("[data-sheet-sort]").forEach(sortBtn => sortBtn.addEventListener("click", () => {
+    const direction = sortBtn.dataset.sheetSort;
+    tableSortState = direction === "clear" ? { column:"", direction:"" } : { column, direction };
+    closeSheetFilterMenu();
+    renderInteractiveTable();
+  }));
+  menu.querySelector('[data-check-action="all"]')?.addEventListener("click", () => {
+    draftSheetFilterValues = new Set(getColumnUniqueValues(column));
+    renderSheetFilterValues(menu.querySelector(".sheet-filter-search")?.value || "");
+  });
+  menu.querySelector('[data-check-action="none"]')?.addEventListener("click", () => {
+    draftSheetFilterValues.clear();
+    renderSheetFilterValues(menu.querySelector(".sheet-filter-search")?.value || "");
+  });
+  menu.querySelector("[data-sheet-cancel]")?.addEventListener("click", closeSheetFilterMenu);
+  menu.querySelector("[data-sheet-apply]")?.addEventListener("click", () => {
+    const allValues = getColumnUniqueValues(column);
+    if(draftSheetFilterValues.size === 0 || draftSheetFilterValues.size === allValues.length) delete tableColumnFilters[column];
+    else tableColumnFilters[column] = new Set(draftSheetFilterValues);
+    closeSheetFilterMenu();
+    renderInteractiveTable();
+  });
+}
+
+function bindTableHeaderEvents(){
+  document.querySelectorAll(".sheet-filter-btn").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const column = button.dataset.filterMenuColumn;
+      if(activeSheetFilterColumn === column && document.getElementById("sheetFilterMenu")?.classList.contains("open")) closeSheetFilterMenu();
+      else openSheetFilterMenu(button, column);
     });
-    input.addEventListener("keydown", e => e.stopPropagation());
   });
 
   document.getElementById("clearColumnFiltersBtn")?.addEventListener("click", () => {
     tableColumnFilters = {};
+    tableSortState = { column:"", direction:"" };
+    closeSheetFilterMenu();
     renderInteractiveTable();
   });
 
   document.querySelectorAll(".resize-handle").forEach(handle => {
     handle.addEventListener("mousedown", event => {
       event.preventDefault();
+      event.stopPropagation();
       const column = handle.dataset.resizeColumn;
       const th = handle.closest("th");
       const startX = event.clientX;
@@ -1403,6 +1625,13 @@ function bindTableHeaderEvents(){
     });
   });
 }
+
+document.addEventListener("click", event => {
+  const menu = document.getElementById("sheetFilterMenu");
+  if(menu?.classList.contains("open") && !menu.contains(event.target) && !event.target.closest(".sheet-filter-btn")) closeSheetFilterMenu();
+});
+window.addEventListener("resize", closeSheetFilterMenu);
+window.addEventListener("scroll", closeSheetFilterMenu, true);
 
 function bindSelectionEvents(){
   const selectAll = document.getElementById("selectAllRows");
@@ -2092,6 +2321,7 @@ function renderUploadHistory(rows){
         <th>등록 건수</th>
         <th>업로드 일시</th>
         <th>업로드 계정</th>
+        <th class="download-col">다운로드</th>
         ${isAdminUser ? '<th class="action-col">관리</th>' : ''}
       </tr></thead>
       <tbody>
@@ -2101,10 +2331,83 @@ function renderUploadHistory(rows){
             <td>${Number(row.row_count || 0).toLocaleString("ko-KR")}건</td>
             <td>${escapeHtml(formatUploadDate(row.uploaded_at) || "-")}</td>
             <td>${escapeHtml(row.uploader_email || "기록 없음")}</td>
+            <td class="download-col"><button type="button" class="ghost history-download-btn" data-download-batch-id="${escapeHtml(row.id)}" data-download-batch-name="${escapeHtml(row.filename || "파일명 없음")}">다운로드</button></td>
             ${isAdminUser ? `<td class="action-col"><button type="button" class="danger-soft history-delete-btn" data-delete-batch-id="${escapeHtml(row.id)}" data-delete-batch-name="${escapeHtml(row.filename || "파일명 없음")}">파일 데이터 삭제</button></td>` : ''}
           </tr>`).join("")}
       </tbody>
     </table>`;
+}
+
+
+async function downloadUploadBatch(batchId, filename, button){
+  if(!batchId) return;
+
+  const originalText = button?.textContent || "다운로드";
+  if(button){
+    button.disabled = true;
+    button.textContent = "준비 중...";
+  }
+
+  try{
+    const { data: batch, error: batchError } = await supabaseClient
+      .from(BATCH_TABLE_NAME)
+      .select("id,filename,headers")
+      .eq("id", batchId)
+      .maybeSingle();
+    if(batchError) throw batchError;
+    if(!batch) throw new Error("업로드 기록을 찾지 못했습니다.");
+
+    const rows = [];
+    let from = 0;
+    while(true){
+      const to = from + DOWNLOAD_PAGE_SIZE - 1;
+      const { data, error } = await supabaseClient
+        .from(TABLE_NAME)
+        .select("id,batch_id,raw_data")
+        .eq("batch_id", batchId)
+        .order("id", { ascending:true })
+        .range(from, to);
+      if(error) throw error;
+
+      const page = data || [];
+      rows.push(...page);
+      if(button) button.textContent = `${rows.length.toLocaleString("ko-KR")}건`;
+      if(page.length < DOWNLOAD_PAGE_SIZE) break;
+      from += DOWNLOAD_PAGE_SIZE;
+    }
+
+    if(!rows.length) throw new Error("다운로드할 주문 데이터가 없습니다.");
+
+    const batchMap = new Map([[String(batch.id), batch]]);
+    const { headers, values } = buildOriginalMatrix(rows, batchMap);
+    if(!headers.length) throw new Error("원본 엑셀 헤더를 찾지 못했습니다.");
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...values]);
+    const samples = values.slice(0, 2000);
+    worksheet["!cols"] = headers.map((header, index) => {
+      const maxLength = Math.max(
+        String(header).length,
+        ...samples.map(row => String(row[index] ?? "").length)
+      );
+      return { wch: Math.min(Math.max(maxLength + 2, 10), 40) };
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "업로드원본");
+
+    const sourceName = batch.filename || filename || "업로드파일";
+    const safeName = sourceName.replace(/\.xlsx?$/i, "").replace(/[\\/:*?"<>|]/g, "_");
+    XLSX.writeFile(workbook, `${safeName}_업로드기록.xlsx`);
+    showNotice(`${sourceName} 데이터 ${rows.length.toLocaleString("ko-KR")}건을 내려받았습니다.`);
+  }catch(err){
+    console.error("업로드 기록 다운로드 오류:", err);
+    showNotice(`파일 다운로드 오류: ${err.message || err}`, true);
+  }finally{
+    if(button){
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
 }
 
 async function deleteUploadBatch(batchId, filename){
@@ -2175,9 +2478,19 @@ closeUploadHistoryBtn?.addEventListener("click", () => {
 });
 refreshUploadHistoryBtn.addEventListener("click", () => loadUploadHistory(true));
 uploadHistoryArea.addEventListener("click", event => {
-  const button = event.target.closest("[data-delete-batch-id]");
-  if(!button) return;
-  deleteUploadBatch(button.dataset.deleteBatchId, button.dataset.deleteBatchName || "업로드 파일");
+  const downloadButton = event.target.closest("[data-download-batch-id]");
+  if(downloadButton){
+    downloadUploadBatch(
+      downloadButton.dataset.downloadBatchId,
+      downloadButton.dataset.downloadBatchName || "업로드 파일",
+      downloadButton
+    );
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-batch-id]");
+  if(!deleteButton) return;
+  deleteUploadBatch(deleteButton.dataset.deleteBatchId, deleteButton.dataset.deleteBatchName || "업로드 파일");
 });
 
 /* ---------------- 업로드 영역 (버튼으로 토글) ---------------- */
@@ -2232,6 +2545,62 @@ function requestMissingShippedDate({ count, columnMissing=false, invalidFormat=f
         return;
       }
       finish(value);
+    };
+    const onCancel = () => finish(null);
+    const onBackdrop = e => { if(e.target === missingDateModal) finish(null); };
+    const onKeydown = e => {
+      if(e.key === "Escape") finish(null);
+      if(e.key === "Enter") onConfirm();
+    };
+
+    confirmMissingDateBtn.addEventListener("click", onConfirm);
+    cancelMissingDateBtn.addEventListener("click", onCancel);
+    missingDateModal.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+function requestMissingShippedYear({ count, preview="", examples="" }){
+  return new Promise(resolve => {
+    const label = document.querySelector('label[for="missingDateInput"]');
+    missingDateMessage.textContent = "출고일에 월/일은 있지만 연도가 없는 행이 있습니다. 연도만 입력하면 날짜 앞에 연도를 추가하고, 날짜 뒤에 작성된 메모는 그대로 유지합니다.";
+    missingDateCount.textContent = `연도 누락 ${Number(count).toLocaleString("ko-KR")}건에 적용합니다.${preview ? ` 확인 행: ${preview}` : ""}${examples ? ` · 예: ${examples}` : ""}`;
+    if(label) label.textContent = "적용할 연도";
+    missingDateInput.type = "number";
+    missingDateInput.min = "1900";
+    missingDateInput.max = "2100";
+    missingDateInput.step = "1";
+    missingDateInput.placeholder = "예: 2026";
+    missingDateInput.value = String(new Date().getFullYear());
+    missingDateError.textContent = "";
+    missingDateModal.classList.add("open");
+    setTimeout(() => { missingDateInput.focus(); missingDateInput.select(); }, 0);
+
+    const restoreInput = () => {
+      missingDateInput.type = "date";
+      missingDateInput.removeAttribute("min");
+      missingDateInput.removeAttribute("max");
+      missingDateInput.removeAttribute("step");
+      missingDateInput.removeAttribute("placeholder");
+      if(label) label.textContent = "적용할 출고일";
+    };
+    const finish = value => {
+      missingDateModal.classList.remove("open");
+      confirmMissingDateBtn.removeEventListener("click", onConfirm);
+      cancelMissingDateBtn.removeEventListener("click", onCancel);
+      missingDateModal.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+      restoreInput();
+      resolve(value);
+    };
+    const onConfirm = () => {
+      const year = Number(missingDateInput.value);
+      if(!Number.isInteger(year) || year < 1900 || year > 2100){
+        missingDateError.textContent = "1900~2100 사이의 4자리 연도를 입력해 주세요.";
+        missingDateInput.focus();
+        return;
+      }
+      finish(year);
     };
     const onCancel = () => finish(null);
     const onBackdrop = e => { if(e.target === missingDateModal) finish(null); };
@@ -2317,6 +2686,32 @@ function showUploadValidationError(title, message, rowListText = ""){
   uploadValidationError.style.display = "block";
 }
 
+function showUploadFormatError(missingLabels=[]){
+  const missingText = missingLabels.length ? `찾지 못한 필수 컬럼: ${missingLabels.join(", ")}` : "주문 데이터 헤더를 찾지 못했습니다.";
+  uploadValidationError.innerHTML = `
+    <h3>업로드할 수 없는 파일입니다.</h3>
+    <p>${escapeHtml(missingText)}<br />시트명과 시트 개수는 관계없지만, 주문번호와 주문 데이터 헤더가 필요합니다.<br />아래 표준 양식을 내려받아 데이터를 옮긴 후 다시 업로드해 주세요.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="order_upload_template.xlsx" download="화이트샌즈_표준_발주서.xlsx" class="template-download-link">표준 발주서 양식 다운로드</a>
+      <button type="button" class="ghost compact" onclick="document.getElementById('fileInput').click()">다른 파일 선택</button>
+    </div>
+  `;
+  uploadValidationError.style.display = "block";
+}
+
+function showUploadCheckSummary({sheetName, headerRowNumber, rowCount, headers}){
+  const labelByKey = Object.fromEntries(Object.entries(HEADER_MAP).map(([label,key]) => [key,label]));
+  const lines = headers.map(key => `✓ ${labelByKey[key] || key}`).join("<br />");
+  uploadValidationError.innerHTML = `
+    <div class="upload-check-summary">
+      <strong>파일 검사 완료</strong><br />
+      사용 시트: ${escapeHtml(sheetName)} · 헤더 ${headerRowNumber}행 · 데이터 ${Number(rowCount).toLocaleString("ko-KR")}건<br />
+      ${lines}
+    </div>
+  `;
+  uploadValidationError.style.display = "block";
+}
+
 
 function pad2(value){
   return String(value).padStart(2, "0");
@@ -2339,27 +2734,49 @@ function makeIsoDate(year, month, day){
 // 거부 예: 7/21, 07-21, 7월 21일, 잘못된 날짜
 function normalizeShippedDate(value){
   if(value === null || value === undefined || String(value).trim() === ""){
-    return { valid:false, reason:"blank", normalized:null };
+    return { valid:false, reason:"blank", normalized:null, suffix:"", original:"" };
   }
 
   if(value instanceof Date && !Number.isNaN(value.getTime())){
     const normalized = makeIsoDate(value.getFullYear(), value.getMonth() + 1, value.getDate());
-    return normalized ? { valid:true, reason:null, normalized } : { valid:false, reason:"invalid", normalized:null };
+    return normalized ? { valid:true, reason:null, normalized, suffix:"", original:String(value) } : { valid:false, reason:"invalid", normalized:null, suffix:"", original:String(value) };
   }
 
   if(typeof value === "number" && Number.isFinite(value)){
     const parsed = XLSX.SSF.parse_date_code(value);
     const normalized = parsed ? makeIsoDate(parsed.y, parsed.m, parsed.d) : null;
-    return normalized ? { valid:true, reason:null, normalized } : { valid:false, reason:"invalid", normalized:null };
+    return normalized ? { valid:true, reason:null, normalized, suffix:"", original:String(value) } : { valid:false, reason:"invalid", normalized:null, suffix:"", original:String(value) };
   }
 
   const text = String(value).trim();
-  // 시간 정보가 뒤에 붙은 경우에도 앞부분의 완전한 날짜만 사용
-  const match = text.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?:\s*일)?(?:\s|$|T)/);
-  if(!match) return { valid:false, reason:"invalid", normalized:null };
 
-  const normalized = makeIsoDate(match[1], match[2], match[3]);
-  return normalized ? { valid:true, reason:null, normalized } : { valid:false, reason:"invalid", normalized:null };
+  // 4자리 연도가 있는 날짜: 날짜 뒤 메모를 분리해 보존합니다.
+  const fullMatch = text.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?:\s*일)?(.*)$/);
+  if(fullMatch){
+    const normalized = makeIsoDate(fullMatch[1], fullMatch[2], fullMatch[3]);
+    if(!normalized) return { valid:false, reason:"invalid", normalized:null, suffix:"", original:text };
+    return { valid:true, reason:null, normalized, suffix:fullMatch[4] || "", original:text };
+  }
+
+  // 연도 없이 월/일만 기록된 경우: 예) 7/16 발송후 취소, 07-16 취소
+  const monthDayMatch = text.match(/^(\d{1,2})\s*[-./월]\s*(\d{1,2})(?:\s*일)?(.*)$/);
+  if(monthDayMatch){
+    const month = Number(monthDayMatch[1]);
+    const day = Number(monthDayMatch[2]);
+    if(month >= 1 && month <= 12 && day >= 1 && day <= 31){
+      return {
+        valid:false,
+        reason:"year_missing",
+        normalized:null,
+        month,
+        day,
+        suffix:monthDayMatch[3] || "",
+        original:text,
+      };
+    }
+  }
+
+  return { valid:false, reason:"invalid", normalized:null, suffix:"", original:text };
 }
 
 uploadBtn.addEventListener("click", async () => {
@@ -2374,67 +2791,104 @@ uploadBtn.addEventListener("click", async () => {
     if(!selectedFileBuffer) throw new Error("파일 데이터가 준비되지 않았습니다. 파일을 다시 선택해 주세요.");
     const wb = XLSX.read(selectedFileBuffer, { type: "array" });
 
-    const sheetName = wb.SheetNames.includes(SHEET_NAME) ? SHEET_NAME : wb.SheetNames[0];
-    log(`시트 사용: ${sheetName}`);
-    const ws = wb.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-    if (!rows.length){
-      log("데이터가 없습니다.");
-      uploadBtn.disabled = false;
+    const detected = inspectWorkbookForOrderSheet(wb);
+    if(!detected){
+      log("❌ 주문 데이터 헤더를 찾지 못했습니다.");
+      showUploadFormatError(["주문번호", "수령인/운송장번호/상품명"]);
+      progressWrap.style.display = "none";
       return;
     }
 
-    const headerRow = rows[0].map(h => (h === null ? "" : String(h).trim()));
+    const { sheetName, rows, headerRowIndex } = detected;
+    log(`자동 선택 시트: ${sheetName} · 헤더 ${headerRowIndex + 1}행`);
+
+    const headerRow = (rows[headerRowIndex] || []).map(h => h === null ? "" : String(h).trim());
     const dataRowEntries = rows
-      .slice(1)
-      .map((row, index) => ({ row, excelRow: index + 2 }))
-      .filter(({ row }) => row.some(cell => cell !== null && cell !== ""));
+      .slice(headerRowIndex + 1)
+      .map((row, index) => ({ row, excelRow: headerRowIndex + index + 2 }))
+      .filter(({ row }) => row.some(cell => cell !== null && String(cell).trim() !== ""));
     const dataRows = dataRowEntries.map(({ row }) => row);
 
-    log(`총 ${dataRows.length}건의 데이터 확인됨`);
+    if(!dataRows.length){
+      log("❌ 헤더 아래에 주문 데이터가 없습니다.");
+      showUploadValidationError("업로드할 수 없는 파일입니다.", "주문 데이터 헤더는 찾았지만 실제 데이터 행이 없습니다.");
+      progressWrap.style.display = "none";
+      return;
+    }
+
+    log(`총 ${dataRows.length.toLocaleString("ko-KR")}건의 데이터 확인됨`);
 
     // 검색/조회용으로 미리 알고 있는 컬럼만 별도 매핑 (모르는 열이어도 raw_data에는 전부 저장됨)
-    const colMap = [];
-    headerRow.forEach((h, i) => {
-      colMap[i] = HEADER_MAP[h] || null;
+    const colMap = headerRow.map(resolveHeaderKey);
+    const detectedKeys = [...new Set(colMap.filter(Boolean))];
+
+    // 출고일 헤더 자체가 없으면 임의 생성하지 않고 표준 양식을 안내합니다.
+    const shippedDateIndex = colMap.findIndex(key => key === "shipped_date");
+    if(shippedDateIndex === -1){
+      log("❌ 필수 컬럼 '출고일'을 찾지 못했습니다.");
+      showUploadFormatError(["출고일"]);
+      progressWrap.style.display = "none";
+      return;
+    }
+
+    showUploadCheckSummary({
+      sheetName,
+      headerRowNumber: headerRowIndex + 1,
+      rowCount: dataRows.length,
+      headers: detectedKeys.slice(0, 10),
     });
 
-    // 출고일 열·빈값뿐 아니라 연도 누락 및 잘못된 날짜 형식까지 업로드 전에 검사합니다.
-    // 문제가 있으면 DB 저장 전에 날짜 선택 모달을 띄우고 선택한 날짜로 오류 행을 교체합니다.
-    let shippedDateIndex = colMap.findIndex(key => key === "shipped_date");
-
-    if (shippedDateIndex === -1){
-      const selectedDate = await requestMissingShippedDate({
-        count: dataRowEntries.length,
-        columnMissing: true,
-      });
-
-      if(!selectedDate){
-        log("업로드가 취소되었습니다. 출고일을 선택하지 않았습니다.");
-        progressWrap.style.display = "none";
-        return;
-      }
-
-      shippedDateIndex = headerRow.length;
-      headerRow.push("출고일");
-      colMap.push("shipped_date");
-      dataRowEntries.forEach(({ row }) => { row[shippedDateIndex] = selectedDate; });
-      log(`✅ 출고일 열 생성 및 자동 입력 완료: ${selectedDate} · ${dataRowEntries.length.toLocaleString("ko-KR")}건`);
-    }else{
+    // 출고일 값의 빈값·연도 누락·잘못된 날짜 형식을 업로드 전에 검사합니다.
+    // raw_data에는 날짜 뒤 메모를 보존하고, 검색용 shipped_date에는 날짜만 저장합니다.
+    const shippedDateRawOverrides = new WeakMap();
+    {
       const checkedRows = dataRowEntries.map(entry => ({
         ...entry,
         dateCheck: normalizeShippedDate(entry.row[shippedDateIndex]),
       }));
       const blankRows = checkedRows.filter(item => item.dateCheck.reason === "blank");
+      const yearMissingRows = checkedRows.filter(item => item.dateCheck.reason === "year_missing");
       const invalidRows = checkedRows.filter(item => item.dateCheck.reason === "invalid");
-      const problemRows = checkedRows.filter(item => !item.dateCheck.valid);
 
-      if(problemRows.length){
-        const preview = problemRows.slice(0, 10).map(item => `${item.excelRow}행`).join(", ")
-          + (problemRows.length > 10 ? ` 외 ${problemRows.length - 10}건` : "");
+      // 월/일과 뒤 메모는 유지하고 사용자가 입력한 연도만 붙입니다.
+      if(yearMissingRows.length){
+        const preview = yearMissingRows.slice(0, 10).map(item => `${item.excelRow}행`).join(", ")
+          + (yearMissingRows.length > 10 ? ` 외 ${yearMissingRows.length - 10}건` : "");
+        const examples = yearMissingRows.slice(0, 2).map(item => item.dateCheck.original).join(" / ");
+        const selectedYear = await requestMissingShippedYear({
+          count: yearMissingRows.length,
+          preview,
+          examples,
+        });
+
+        if(!selectedYear){
+          log("업로드가 취소되었습니다. 연도가 누락된 출고일을 보정할 연도를 입력하지 않았습니다.");
+          progressWrap.style.display = "none";
+          return;
+        }
+
+        for(const item of yearMissingRows){
+          const normalized = makeIsoDate(selectedYear, item.dateCheck.month, item.dateCheck.day);
+          if(!normalized){
+            log(`❌ ${item.excelRow}행의 월/일이 올바르지 않습니다: ${item.dateCheck.original}`);
+            progressWrap.style.display = "none";
+            return;
+          }
+          const suffix = item.dateCheck.suffix || "";
+          item.row[shippedDateIndex] = normalized;
+          shippedDateRawOverrides.set(item.row, `${normalized}${suffix}`);
+        }
+        log(`✅ 출고일 연도 보정 완료: ${selectedYear}년 · ${yearMissingRows.length.toLocaleString("ko-KR")}건`);
+        log("  - 날짜 뒤 메모는 원본 그대로 유지됩니다.");
+      }
+
+      // 빈값 또는 날짜 자체를 해석할 수 없는 값은 전체 날짜를 선택해 교체합니다.
+      const remainingProblemRows = [...blankRows, ...invalidRows];
+      if(remainingProblemRows.length){
+        const preview = remainingProblemRows.slice(0, 10).map(item => `${item.excelRow}행`).join(", ")
+          + (remainingProblemRows.length > 10 ? ` 외 ${remainingProblemRows.length - 10}건` : "");
         const selectedDate = await requestMissingShippedDate({
-          count: problemRows.length,
+          count: remainingProblemRows.length,
           columnMissing: false,
           invalidFormat: invalidRows.length > 0,
           preview,
@@ -2443,22 +2897,25 @@ uploadBtn.addEventListener("click", async () => {
         if(!selectedDate){
           log("업로드가 취소되었습니다. 출고일 오류를 수정할 날짜를 선택하지 않았습니다.");
           if(blankRows.length) log(`❌ 출고일 빈값: ${blankRows.length.toLocaleString("ko-KR")}건`);
-          if(invalidRows.length) log(`❌ 연도 누락 또는 잘못된 날짜 형식: ${invalidRows.length.toLocaleString("ko-KR")}건`);
+          if(invalidRows.length) log(`❌ 잘못된 날짜 형식: ${invalidRows.length.toLocaleString("ko-KR")}건`);
           progressWrap.style.display = "none";
           return;
         }
 
-        problemRows.forEach(({ row }) => { row[shippedDateIndex] = selectedDate; });
-        log(`✅ 출고일 오류 자동 교체 완료: ${selectedDate} · ${problemRows.length.toLocaleString("ko-KR")}건`);
-        if(blankRows.length) log(`  - 빈 출고일 ${blankRows.length.toLocaleString("ko-KR")}건`);
-        if(invalidRows.length) log(`  - 연도 누락/잘못된 형식 ${invalidRows.length.toLocaleString("ko-KR")}건`);
+        remainingProblemRows.forEach(({ row }) => {
+          row[shippedDateIndex] = selectedDate;
+          shippedDateRawOverrides.set(row, selectedDate);
+        });
+        log(`✅ 출고일 오류 자동 교체 완료: ${selectedDate} · ${remainingProblemRows.length.toLocaleString("ko-KR")}건`);
       }
 
-      // 정상 날짜도 DB 검색이 일관되도록 YYYY-MM-DD로 표준화합니다.
+      // 정상 날짜는 날짜만 DB 검색 컬럼에 저장하고 뒤 메모는 raw_data에 유지합니다.
       checkedRows.forEach(({ row, dateCheck }) => {
-        if(dateCheck.valid) row[shippedDateIndex] = dateCheck.normalized;
+        if(!dateCheck.valid) return;
+        row[shippedDateIndex] = dateCheck.normalized;
+        shippedDateRawOverrides.set(row, `${dateCheck.normalized}${dateCheck.suffix || ""}`);
       });
-      log("✅ 출고일 형식 검사 완료: 모든 행이 YYYY-MM-DD 형식으로 저장됩니다.");
+      log("✅ 출고일 형식 검사 완료: 검색용 날짜는 YYYY-MM-DD, 날짜 뒤 메모는 원본에 보존됩니다.");
     }
 
     const unmapped = headerRow.filter((h, i) => h && !colMap[i]);
@@ -2475,7 +2932,10 @@ uploadBtn.addEventListener("click", async () => {
         if (!h) return; // 헤더 없는 빈 열은 건너뜀
         let val = r[i];
         if (val === undefined) val = null;
-        raw[h] = val === null ? null : String(val); // 원본 그대로 보존
+        if(i === shippedDateIndex && shippedDateRawOverrides.has(r)){
+          val = shippedDateRawOverrides.get(r);
+        }
+        raw[h] = val === null ? null : String(val); // 날짜 뒤 메모를 포함한 원본 표현 보존
       });
       rec.raw_data = raw;
 
