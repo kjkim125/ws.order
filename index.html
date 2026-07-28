@@ -462,9 +462,11 @@
   .duplicate-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#fafbfc;border-bottom:1px solid var(--line);}
   .duplicate-detail-title{font-size:13px;font-weight:800;color:var(--ink);}
   .duplicate-detail-title span{margin-left:5px;color:var(--accent);font-size:12px;}
-  .duplicate-copy-btn{padding:7px 10px!important;font-size:12px!important;background:#fff!important;color:var(--accent)!important;border:1px solid #cdded7!important;white-space:nowrap;}
-  .duplicate-copy-btn:disabled{color:#8a949f!important;background:#f3f5f6!important;}
+  .duplicate-detail-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;}
+  .duplicate-copy-btn,.duplicate-select-btn{padding:7px 10px!important;font-size:12px!important;background:#fff!important;color:var(--accent)!important;border:1px solid #cdded7!important;white-space:nowrap;}
+  .duplicate-copy-btn:disabled,.duplicate-select-btn:disabled{color:#8a949f!important;background:#f3f5f6!important;}
   .duplicate-detail-note{margin:0;padding:10px 14px;color:var(--ink-soft);font-size:11px;line-height:1.5;border-bottom:1px solid var(--line);}
+  .duplicate-detail-note strong{color:var(--danger);}
   .duplicate-detail-area{padding:8px 10px 10px;}
   .duplicate-detail-empty{padding:16px 10px;text-align:center;color:var(--ink-soft);font-size:12px;}
   .duplicate-group{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:8px;}
@@ -473,12 +475,16 @@
   .duplicate-group summary::-webkit-details-marker{display:none;}
   .duplicate-group summary::after{content:'펼치기';color:var(--accent);font-size:10px;font-weight:700;}
   .duplicate-group[open] summary::after{content:'접기';}
-  .duplicate-list{max-height:230px;overflow:auto;}
-  .duplicate-item{display:grid;grid-template-columns:minmax(220px,1.1fr) minmax(250px,1.4fr) auto;gap:10px;align-items:start;padding:9px 12px;border-top:1px solid var(--line);font-size:12px;}
+  .duplicate-list{max-height:260px;overflow:auto;}
+  .duplicate-item{display:grid;grid-template-columns:28px minmax(210px,1.1fr) minmax(230px,1.4fr) 88px;gap:10px;align-items:start;padding:10px 12px;border-top:1px solid var(--line);font-size:12px;cursor:pointer;transition:background .12s,border-color .12s;}
+  .duplicate-item:hover{background:#fafcfc;}
+  .duplicate-item.selected{background:#edf5f1;}
+  .duplicate-upload-check{width:17px;height:17px;margin:1px 0 0;accent-color:var(--accent);cursor:pointer;}
   .duplicate-order-number{font-weight:800;color:var(--ink);word-break:break-all;}
   .duplicate-order-number small{display:block;margin-top:3px;color:var(--ink-soft);font-size:10px;font-weight:500;}
   .duplicate-product{color:var(--ink-soft);line-height:1.45;word-break:break-word;}
-  .duplicate-row-count{min-width:46px;text-align:right;color:var(--danger);font-weight:800;white-space:nowrap;}
+  .duplicate-row-status{min-width:72px;text-align:right;color:var(--danger);font-weight:800;white-space:nowrap;}
+  .duplicate-item.selected .duplicate-row-status{color:var(--accent);}
   .duplicate-modal-actions{
     flex:0 0 auto;display:flex;justify-content:flex-end;gap:8px;padding:14px 22px 20px;
     border-top:1px solid var(--line);background:#fafbfc;
@@ -489,9 +495,11 @@
     .duplicate-modal-backdrop{padding:10px;}
     .duplicate-modal{max-height:94vh;}
     .duplicate-detail-head{align-items:flex-start;flex-direction:column;}
-    .duplicate-copy-btn{width:100%;}
-    .duplicate-item{grid-template-columns:1fr;gap:4px;}
-    .duplicate-row-count{text-align:left;}
+    .duplicate-detail-actions{width:100%;justify-content:flex-start;}
+    .duplicate-copy-btn,.duplicate-select-btn{flex:1 1 auto;}
+    .duplicate-item{grid-template-columns:26px 1fr;gap:5px 8px;}
+    .duplicate-product,.duplicate-row-status{grid-column:2;}
+    .duplicate-row-status{text-align:left;}
   }
 
 
@@ -1135,27 +1143,33 @@
   <div class="duplicate-modal">
     <div class="duplicate-modal-head">
       <h3 id="duplicateModalTitle">중복 데이터가 확인되었습니다</h3>
-      <p>중복으로 판단된 행은 등록하지 않고 신규 데이터만 업로드하거나, 이번 파일 업로드 전체를 취소할 수 있습니다.</p>
+      <p>중복 행은 기본적으로 제외됩니다. 다시 등록할 중복 행만 체크하면 신규 데이터와 함께 업로드됩니다.</p>
     </div>
     <div class="duplicate-modal-body">
       <div class="duplicate-summary">
         <span>파일 내부 중복</span><strong id="duplicateInFileCount">0건</strong>
         <span>기존 DB 중복</span><strong id="duplicateInDbCount">0건</strong>
         <span>신규 등록 가능</span><strong id="newRecordCount">0건</strong>
-        <span class="total">중복 합계</span><strong id="duplicateTotalCount" class="total">0건</strong>
+        <span>선택한 중복 업로드</span><strong id="selectedDuplicateCount">0건</strong>
+        <span>중복 합계</span><strong id="duplicateTotalCount">0건</strong>
+        <span class="total">최종 업로드 예정</span><strong id="finalUploadCount" class="total">0건</strong>
       </div>
       <section class="duplicate-detail-section" aria-labelledby="duplicateDetailTitle">
         <div class="duplicate-detail-head">
           <div id="duplicateDetailTitle" class="duplicate-detail-title">중복 주문번호 <span id="duplicateOrderNumberSummary">0개</span></div>
-          <button id="copyDuplicateOrderNumbersBtn" type="button" class="duplicate-copy-btn">중복 주문번호 복사</button>
+          <div class="duplicate-detail-actions">
+            <button id="selectAllDuplicateRowsBtn" type="button" class="duplicate-select-btn">전체 선택</button>
+            <button id="clearDuplicateRowsBtn" type="button" class="duplicate-select-btn">전체 해제</button>
+            <button id="copyDuplicateOrderNumbersBtn" type="button" class="duplicate-copy-btn">중복 주문번호 복사</button>
+          </div>
         </div>
-        <p class="duplicate-detail-note">아래 목록은 실제로 업로드에서 제외될 행입니다. 주문번호가 같아도 상품·컬러·옵션·수량 등이 다르면 중복으로 처리하지 않습니다.</p>
+        <p class="duplicate-detail-note"><strong>기본값은 미선택입니다.</strong> 체크한 중복 행만 업로드되고, 체크하지 않은 중복 행은 제외됩니다. 주문번호가 같아도 상품·컬러·옵션·수량 등이 다르면 중복으로 처리하지 않습니다.</p>
         <div id="duplicateDetailArea" class="duplicate-detail-area"></div>
       </section>
     </div>
     <div class="duplicate-modal-actions">
       <button id="cancelWholeUploadBtn" type="button" class="cancel-upload">전체 파일 업로드 취소</button>
-      <button id="uploadWithoutDuplicatesBtn" type="button">중복 제외 후 업로드</button>
+      <button id="uploadWithoutDuplicatesBtn" type="button">선택 내용으로 업로드</button>
     </div>
   </div>
 </div>
@@ -2878,8 +2892,11 @@ async function fetchExistingRowsForDedupe(records){
   return [...found.values()];
 }
 
-function makeDuplicateDetail(record){
+function makeDuplicateDetail(record, duplicateId, source){
   return {
+    duplicateId,
+    source,
+    record,
     orderNoSabangnet: String(record?.order_no_sabangnet || "").trim(),
     orderNoMall: String(record?.order_no_mall || "").trim(),
     mall: String(record?.mall || "").trim(),
@@ -2900,7 +2917,7 @@ async function removeDuplicateRecords(records){
     if(!hasReliableOrderIdentifier(record)) noIdentifier += 1;
     const key = buildDedupeKey(record);
     if(fileKeys.has(key)){
-      duplicateInFileDetails.push(makeDuplicateDetail(record));
+      duplicateInFileDetails.push(makeDuplicateDetail(record, `file-${duplicateInFileDetails.length}`, "file"));
       continue;
     }
     fileKeys.add(key);
@@ -2913,7 +2930,7 @@ async function removeDuplicateRecords(records){
   const duplicateInDbDetails = [];
   const filtered = uniqueInFile.filter(record => {
     const isDuplicateInDb = hasReliableOrderIdentifier(record) && existingKeys.has(buildDedupeKey(record));
-    if(isDuplicateInDb) duplicateInDbDetails.push(makeDuplicateDetail(record));
+    if(isDuplicateInDb) duplicateInDbDetails.push(makeDuplicateDetail(record, `db-${duplicateInDbDetails.length}`, "db"));
     return !isDuplicateInDb;
   });
 
@@ -2933,8 +2950,12 @@ const duplicateInFileCount = document.getElementById("duplicateInFileCount");
 const duplicateInDbCount = document.getElementById("duplicateInDbCount");
 const duplicateTotalCount = document.getElementById("duplicateTotalCount");
 const newRecordCount = document.getElementById("newRecordCount");
+const selectedDuplicateCount = document.getElementById("selectedDuplicateCount");
+const finalUploadCount = document.getElementById("finalUploadCount");
 const duplicateOrderNumberSummary = document.getElementById("duplicateOrderNumberSummary");
 const duplicateDetailArea = document.getElementById("duplicateDetailArea");
+const selectAllDuplicateRowsBtn = document.getElementById("selectAllDuplicateRowsBtn");
+const clearDuplicateRowsBtn = document.getElementById("clearDuplicateRowsBtn");
 const copyDuplicateOrderNumbersBtn = document.getElementById("copyDuplicateOrderNumbersBtn");
 const cancelWholeUploadBtn = document.getElementById("cancelWholeUploadBtn");
 const uploadWithoutDuplicatesBtn = document.getElementById("uploadWithoutDuplicatesBtn");
@@ -2950,33 +2971,28 @@ function duplicateOrderNumberLabel(item){
   return labels.join(" / ") || "주문번호 없음";
 }
 
-function groupDuplicateDetails(details){
-  const grouped = new Map();
-  (details || []).forEach(item => {
-    const key = [duplicateIdentityKey(item), normalizeDedupeValue(item.productName), normalizeDedupeValue(item.productColorCode), normalizeDedupeValue(item.optionCollected), normalizeDedupeValue(item.quantity)].join("¦");
-    if(!grouped.has(key)) grouped.set(key, { ...item, duplicateRowCount:0 });
-    grouped.get(key).duplicateRowCount += 1;
-  });
-  return [...grouped.values()];
+function getAllDuplicateDetails(result){
+  return [...(result.duplicateInFileDetails || []), ...(result.duplicateInDbDetails || [])];
 }
 
-function renderDuplicateGroup(title, details){
-  const grouped = groupDuplicateDetails(details);
-  if(!grouped.length) return "";
+function renderDuplicateGroup(title, details, selectedIds){
+  if(!(details || []).length) return "";
 
-  const uniqueOrderCount = new Set(grouped.map(duplicateIdentityKey)).size;
-  const rows = grouped.map(item => {
+  const uniqueOrderCount = new Set(details.map(duplicateIdentityKey)).size;
+  const rows = details.map((item, index) => {
     const productParts = [item.productName, item.productColorCode, item.optionCollected].filter(Boolean);
     const productText = productParts.length ? productParts.join(" · ") : "상품 정보 없음";
     const mallText = item.mall ? `쇼핑몰: ${item.mall}` : "";
     const quantityText = item.quantity !== "" && item.quantity !== null && item.quantity !== undefined ? `수량 ${item.quantity}` : "";
     const subText = [mallText, quantityText].filter(Boolean).join(" · ");
+    const checked = selectedIds.has(item.duplicateId);
     return `
-      <div class="duplicate-item">
+      <label class="duplicate-item${checked ? " selected" : ""}" data-duplicate-item="${escapeHtml(item.duplicateId)}">
+        <input type="checkbox" class="duplicate-upload-check" data-duplicate-id="${escapeHtml(item.duplicateId)}" ${checked ? "checked" : ""} aria-label="${escapeHtml(duplicateOrderNumberLabel(item))} 중복 행 업로드" />
         <div class="duplicate-order-number">${escapeHtml(duplicateOrderNumberLabel(item))}${subText ? `<small>${escapeHtml(subText)}</small>` : ""}</div>
         <div class="duplicate-product">${escapeHtml(productText)}</div>
-        <div class="duplicate-row-count">${item.duplicateRowCount.toLocaleString("ko-KR")}행 제외</div>
-      </div>
+        <div class="duplicate-row-status">${checked ? "업로드 선택" : "업로드 제외"}</div>
+      </label>
     `;
   }).join("");
 
@@ -2989,7 +3005,7 @@ function renderDuplicateGroup(title, details){
 }
 
 function getUniqueDuplicateOrderNumbers(result){
-  const all = [...(result.duplicateInFileDetails || []), ...(result.duplicateInDbDetails || [])];
+  const all = getAllDuplicateDetails(result);
   const seen = new Set();
   const unique = [];
   all.forEach(item => {
@@ -3001,14 +3017,28 @@ function getUniqueDuplicateOrderNumbers(result){
   return unique;
 }
 
-function renderDuplicateDetails(result){
+function renderDuplicateDetails(result, selectedIds, onSelectionChange){
   const uniqueOrders = getUniqueDuplicateOrderNumbers(result);
   duplicateOrderNumberSummary.textContent = `${uniqueOrders.length.toLocaleString("ko-KR")}개`;
   copyDuplicateOrderNumbersBtn.disabled = uniqueOrders.length === 0;
   duplicateDetailArea.innerHTML = [
-    renderDuplicateGroup("현재 파일 내부 중복", result.duplicateInFileDetails),
-    renderDuplicateGroup("기존 DB에 이미 등록된 중복", result.duplicateInDbDetails),
+    renderDuplicateGroup("현재 파일 내부 중복", result.duplicateInFileDetails, selectedIds),
+    renderDuplicateGroup("기존 DB에 이미 등록된 중복", result.duplicateInDbDetails, selectedIds),
   ].filter(Boolean).join("") || '<div class="duplicate-detail-empty">표시할 중복 주문번호가 없습니다.</div>';
+
+  duplicateDetailArea.querySelectorAll(".duplicate-upload-check").forEach(check => {
+    check.addEventListener("change", () => {
+      const duplicateId = check.dataset.duplicateId || "";
+      if(check.checked) selectedIds.add(duplicateId);
+      else selectedIds.delete(duplicateId);
+
+      const item = check.closest(".duplicate-item");
+      item?.classList.toggle("selected", check.checked);
+      const status = item?.querySelector(".duplicate-row-status");
+      if(status) status.textContent = check.checked ? "업로드 선택" : "업로드 제외";
+      onSelectionChange();
+    });
+  });
 
   copyDuplicateOrderNumbersBtn.onclick = async () => {
     const header = "구분\t주문번호(사방넷)\t주문번호(쇼핑몰)";
@@ -3048,23 +3078,57 @@ function formatDuplicateOrderNumbersForLog(details, limit=10){
 function askDuplicateUploadAction(result){
   return new Promise(resolve => {
     const duplicateTotal = result.duplicateInFile + result.duplicateInDb;
+    const allDuplicateDetails = getAllDuplicateDetails(result);
+    const selectedIds = new Set();
+
     duplicateInFileCount.textContent = `${result.duplicateInFile.toLocaleString("ko-KR")}건`;
     duplicateInDbCount.textContent = `${result.duplicateInDb.toLocaleString("ko-KR")}건`;
     duplicateTotalCount.textContent = `${duplicateTotal.toLocaleString("ko-KR")}건`;
     newRecordCount.textContent = `${result.records.length.toLocaleString("ko-KR")}건`;
-    renderDuplicateDetails(result);
-    uploadWithoutDuplicatesBtn.disabled = result.records.length === 0;
-    uploadWithoutDuplicatesBtn.textContent = result.records.length
-      ? `중복 제외 후 ${result.records.length.toLocaleString("ko-KR")}건 업로드`
-      : "신규 데이터 없음";
+
+    const updateSelectionSummary = () => {
+      const selectedCount = selectedIds.size;
+      const finalCount = result.records.length + selectedCount;
+      selectedDuplicateCount.textContent = `${selectedCount.toLocaleString("ko-KR")}건`;
+      finalUploadCount.textContent = `${finalCount.toLocaleString("ko-KR")}건`;
+      uploadWithoutDuplicatesBtn.disabled = finalCount === 0;
+      uploadWithoutDuplicatesBtn.textContent = finalCount
+        ? `신규 ${result.records.length.toLocaleString("ko-KR")}건 + 선택 중복 ${selectedCount.toLocaleString("ko-KR")}건 업로드`
+        : "업로드할 데이터 없음";
+      selectAllDuplicateRowsBtn.disabled = allDuplicateDetails.length === 0 || selectedCount === allDuplicateDetails.length;
+      clearDuplicateRowsBtn.disabled = selectedCount === 0;
+    };
+
+    const rerenderDetails = () => {
+      renderDuplicateDetails(result, selectedIds, updateSelectionSummary);
+      updateSelectionSummary();
+    };
+
+    selectAllDuplicateRowsBtn.onclick = () => {
+      allDuplicateDetails.forEach(item => selectedIds.add(item.duplicateId));
+      rerenderDetails();
+    };
+    clearDuplicateRowsBtn.onclick = () => {
+      selectedIds.clear();
+      rerenderDetails();
+    };
+
+    rerenderDetails();
 
     const finish = action => {
+      const selectedDetails = allDuplicateDetails.filter(item => selectedIds.has(item.duplicateId));
       duplicateModalBackdrop.classList.remove("open");
       cancelWholeUploadBtn.onclick = null;
       uploadWithoutDuplicatesBtn.onclick = null;
+      selectAllDuplicateRowsBtn.onclick = null;
+      clearDuplicateRowsBtn.onclick = null;
       copyDuplicateOrderNumbersBtn.onclick = null;
       document.removeEventListener("keydown", onKeydown);
-      resolve(action);
+      resolve({
+        action,
+        selectedDuplicateRecords: selectedDetails.map(item => item.record),
+        selectedDuplicateDetails: selectedDetails,
+      });
     };
     const onKeydown = event => {
       if(event.key === "Escape") finish("cancel");
@@ -3887,27 +3951,41 @@ uploadBtn.addEventListener("click", async () => {
 
     if(dedupeResult.noIdentifier) log(`⚠ 주문번호가 없는 ${dedupeResult.noIdentifier.toLocaleString("ko-KR")}건은 기존 DB와의 중복 확인이 제한됩니다.`);
 
+    let selectedDuplicateRecords = [];
+    let selectedDuplicateDetails = [];
     if(duplicateTotal > 0){
       log(`⚠ 중복 의심 데이터 ${duplicateTotal.toLocaleString("ko-KR")}건이 확인되었습니다.`);
-      const duplicateAction = await askDuplicateUploadAction(dedupeResult);
-      if(duplicateAction !== "continue"){
+      const duplicateDecision = await askDuplicateUploadAction(dedupeResult);
+      if(duplicateDecision.action !== "continue"){
         log("업로드를 취소했습니다. 현재 파일은 DB에 등록되지 않았습니다.");
         progressWrap.style.display = "none";
         return;
       }
-      if(dedupeResult.duplicateInFile){
-        log(`ℹ 현재 파일 안의 중복 ${dedupeResult.duplicateInFile.toLocaleString("ko-KR")}건 제외`);
-        const fileDuplicateNumbers = formatDuplicateOrderNumbersForLog(dedupeResult.duplicateInFileDetails);
-        if(fileDuplicateNumbers) log(`  ↳ 파일 내부 중복 주문번호: ${fileDuplicateNumbers}`);
+
+      selectedDuplicateRecords = duplicateDecision.selectedDuplicateRecords || [];
+      selectedDuplicateDetails = duplicateDecision.selectedDuplicateDetails || [];
+      const selectedFileDuplicates = selectedDuplicateDetails.filter(item => item.source === "file");
+      const selectedDbDuplicates = selectedDuplicateDetails.filter(item => item.source === "db");
+      const excludedFileCount = dedupeResult.duplicateInFile - selectedFileDuplicates.length;
+      const excludedDbCount = dedupeResult.duplicateInDb - selectedDbDuplicates.length;
+
+      if(selectedDuplicateDetails.length){
+        log(`✅ 선택한 중복 ${selectedDuplicateDetails.length.toLocaleString("ko-KR")}건을 예외적으로 업로드합니다.`);
+        const selectedNumbers = formatDuplicateOrderNumbersForLog(selectedDuplicateDetails);
+        if(selectedNumbers) log(`  ↳ 선택 업로드 주문번호: ${selectedNumbers}`);
+      }else{
+        log("ℹ 선택한 중복 행이 없어 모든 중복 데이터를 제외합니다.");
       }
-      if(dedupeResult.duplicateInDb){
-        log(`ℹ 이미 등록된 중복 ${dedupeResult.duplicateInDb.toLocaleString("ko-KR")}건 제외`);
-        const dbDuplicateNumbers = formatDuplicateOrderNumbersForLog(dedupeResult.duplicateInDbDetails);
-        if(dbDuplicateNumbers) log(`  ↳ 기존 DB 중복 주문번호: ${dbDuplicateNumbers}`);
+
+      if(excludedFileCount > 0){
+        log(`ℹ 현재 파일 안의 미선택 중복 ${excludedFileCount.toLocaleString("ko-KR")}건 제외`);
+      }
+      if(excludedDbCount > 0){
+        log(`ℹ 기존 DB의 미선택 중복 ${excludedDbCount.toLocaleString("ko-KR")}건 제외`);
       }
     }
 
-    records = dedupeResult.records;
+    records = [...dedupeResult.records, ...selectedDuplicateRecords];
     if(!records.length){
       log("✅ 새로 등록할 데이터가 없습니다. 모든 행이 기존 데이터와 중복됩니다.");
       progressWrap.style.display = "none";
@@ -3941,7 +4019,7 @@ uploadBtn.addEventListener("click", async () => {
       log(`  ${uploaded} / ${records.length} 건 업로드 완료`);
     }
 
-    log(`✅ 전체 업로드 완료: ${uploaded}건 · 중복 제외 후 저장됨`);
+    log(`✅ 전체 업로드 완료: ${uploaded}건 · 신규 ${dedupeResult.records.length.toLocaleString("ko-KR")}건 + 선택 중복 ${selectedDuplicateRecords.length.toLocaleString("ko-KR")}건`);
 
     // 업로드가 성공한 순간 24시간 캐시를 즉시 폐기하고 최신 DB 기준으로 다시 구성합니다.
     const pageToRefresh = activeCriteria ? (currentPage || 1) : null;
