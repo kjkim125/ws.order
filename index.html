@@ -443,26 +443,56 @@
   }
   .duplicate-modal-backdrop.open{display:flex;}
   .duplicate-modal{
-    width:min(520px,100%);background:#fff;border-radius:14px;
+    width:min(760px,100%);max-height:min(88vh,820px);background:#fff;border-radius:14px;
     border:1px solid var(--line);box-shadow:0 24px 70px rgba(15,23,42,.22);
-    overflow:hidden;
+    overflow:hidden;display:flex;flex-direction:column;
   }
   .duplicate-modal-head{padding:20px 22px 12px;}
   .duplicate-modal-head h3{margin:0 0 8px;font-size:19px;}
   .duplicate-modal-head p{margin:0;color:var(--ink-soft);font-size:13px;line-height:1.55;}
+  .duplicate-modal-body{min-height:0;overflow-y:auto;}
   .duplicate-summary{
-    margin:4px 22px 18px;padding:14px;border-radius:10px;
+    margin:4px 22px 14px;padding:14px;border-radius:10px;
     background:var(--accent-soft);border:1px solid #cdded7;
     display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:13px;
   }
   .duplicate-summary strong{color:var(--ink);}
   .duplicate-summary .total{padding-top:8px;margin-top:4px;border-top:1px solid #cdded7;font-weight:800;}
+  .duplicate-detail-section{margin:0 22px 18px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
+  .duplicate-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#fafbfc;border-bottom:1px solid var(--line);}
+  .duplicate-detail-title{font-size:13px;font-weight:800;color:var(--ink);}
+  .duplicate-detail-title span{margin-left:5px;color:var(--accent);font-size:12px;}
+  .duplicate-copy-btn{padding:7px 10px!important;font-size:12px!important;background:#fff!important;color:var(--accent)!important;border:1px solid #cdded7!important;white-space:nowrap;}
+  .duplicate-copy-btn:disabled{color:#8a949f!important;background:#f3f5f6!important;}
+  .duplicate-detail-note{margin:0;padding:10px 14px;color:var(--ink-soft);font-size:11px;line-height:1.5;border-bottom:1px solid var(--line);}
+  .duplicate-detail-area{padding:8px 10px 10px;}
+  .duplicate-detail-empty{padding:16px 10px;text-align:center;color:var(--ink-soft);font-size:12px;}
+  .duplicate-group{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:8px;}
+  .duplicate-group:first-child{margin-top:0;}
+  .duplicate-group summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#f7f9f8;color:var(--ink);font-size:12px;font-weight:800;cursor:pointer;list-style:none;}
+  .duplicate-group summary::-webkit-details-marker{display:none;}
+  .duplicate-group summary::after{content:'펼치기';color:var(--accent);font-size:10px;font-weight:700;}
+  .duplicate-group[open] summary::after{content:'접기';}
+  .duplicate-list{max-height:230px;overflow:auto;}
+  .duplicate-item{display:grid;grid-template-columns:minmax(220px,1.1fr) minmax(250px,1.4fr) auto;gap:10px;align-items:start;padding:9px 12px;border-top:1px solid var(--line);font-size:12px;}
+  .duplicate-order-number{font-weight:800;color:var(--ink);word-break:break-all;}
+  .duplicate-order-number small{display:block;margin-top:3px;color:var(--ink-soft);font-size:10px;font-weight:500;}
+  .duplicate-product{color:var(--ink-soft);line-height:1.45;word-break:break-word;}
+  .duplicate-row-count{min-width:46px;text-align:right;color:var(--danger);font-weight:800;white-space:nowrap;}
   .duplicate-modal-actions{
-    display:flex;justify-content:flex-end;gap:8px;padding:14px 22px 20px;
+    flex:0 0 auto;display:flex;justify-content:flex-end;gap:8px;padding:14px 22px 20px;
     border-top:1px solid var(--line);background:#fafbfc;
   }
   .duplicate-modal-actions button{font-size:14px;padding:10px 14px;}
   .duplicate-modal-actions .cancel-upload{background:#fff;color:var(--danger);border:1px solid #e7c9bd;}
+  @media(max-width:680px){
+    .duplicate-modal-backdrop{padding:10px;}
+    .duplicate-modal{max-height:94vh;}
+    .duplicate-detail-head{align-items:flex-start;flex-direction:column;}
+    .duplicate-copy-btn{width:100%;}
+    .duplicate-item{grid-template-columns:1fr;gap:4px;}
+    .duplicate-row-count{text-align:left;}
+  }
 
 
   /* 관리자 운영 도구 */
@@ -1107,11 +1137,21 @@
       <h3 id="duplicateModalTitle">중복 데이터가 확인되었습니다</h3>
       <p>중복으로 판단된 행은 등록하지 않고 신규 데이터만 업로드하거나, 이번 파일 업로드 전체를 취소할 수 있습니다.</p>
     </div>
-    <div class="duplicate-summary">
-      <span>파일 내부 중복</span><strong id="duplicateInFileCount">0건</strong>
-      <span>기존 DB 중복</span><strong id="duplicateInDbCount">0건</strong>
-      <span>신규 등록 가능</span><strong id="newRecordCount">0건</strong>
-      <span class="total">중복 합계</span><strong id="duplicateTotalCount" class="total">0건</strong>
+    <div class="duplicate-modal-body">
+      <div class="duplicate-summary">
+        <span>파일 내부 중복</span><strong id="duplicateInFileCount">0건</strong>
+        <span>기존 DB 중복</span><strong id="duplicateInDbCount">0건</strong>
+        <span>신규 등록 가능</span><strong id="newRecordCount">0건</strong>
+        <span class="total">중복 합계</span><strong id="duplicateTotalCount" class="total">0건</strong>
+      </div>
+      <section class="duplicate-detail-section" aria-labelledby="duplicateDetailTitle">
+        <div class="duplicate-detail-head">
+          <div id="duplicateDetailTitle" class="duplicate-detail-title">중복 주문번호 <span id="duplicateOrderNumberSummary">0개</span></div>
+          <button id="copyDuplicateOrderNumbersBtn" type="button" class="duplicate-copy-btn">중복 주문번호 복사</button>
+        </div>
+        <p class="duplicate-detail-note">아래 목록은 실제로 업로드에서 제외될 행입니다. 주문번호가 같아도 상품·컬러·옵션·수량 등이 다르면 중복으로 처리하지 않습니다.</p>
+        <div id="duplicateDetailArea" class="duplicate-detail-area"></div>
+      </section>
     </div>
     <div class="duplicate-modal-actions">
       <button id="cancelWholeUploadBtn" type="button" class="cancel-upload">전체 파일 업로드 취소</button>
@@ -2838,17 +2878,29 @@ async function fetchExistingRowsForDedupe(records){
   return [...found.values()];
 }
 
+function makeDuplicateDetail(record){
+  return {
+    orderNoSabangnet: String(record?.order_no_sabangnet || "").trim(),
+    orderNoMall: String(record?.order_no_mall || "").trim(),
+    mall: String(record?.mall || "").trim(),
+    productName: String(record?.product_name || "").trim(),
+    productColorCode: String(record?.product_color_code || "").trim(),
+    optionCollected: String(record?.option_collected || "").trim(),
+    quantity: record?.quantity ?? "",
+  };
+}
+
 async function removeDuplicateRecords(records){
   const uniqueInFile = [];
   const fileKeys = new Set();
-  let duplicateInFile = 0;
+  const duplicateInFileDetails = [];
   let noIdentifier = 0;
 
   for(const record of records){
     if(!hasReliableOrderIdentifier(record)) noIdentifier += 1;
     const key = buildDedupeKey(record);
     if(fileKeys.has(key)){
-      duplicateInFile += 1;
+      duplicateInFileDetails.push(makeDuplicateDetail(record));
       continue;
     }
     fileKeys.add(key);
@@ -2858,11 +2910,19 @@ async function removeDuplicateRecords(records){
   const candidates = uniqueInFile.filter(hasReliableOrderIdentifier);
   const existing = candidates.length ? await fetchExistingRowsForDedupe(candidates) : [];
   const existingKeys = new Set(existing.map(buildDedupeKey));
-  const filtered = uniqueInFile.filter(record => !hasReliableOrderIdentifier(record) || !existingKeys.has(buildDedupeKey(record)));
+  const duplicateInDbDetails = [];
+  const filtered = uniqueInFile.filter(record => {
+    const isDuplicateInDb = hasReliableOrderIdentifier(record) && existingKeys.has(buildDedupeKey(record));
+    if(isDuplicateInDb) duplicateInDbDetails.push(makeDuplicateDetail(record));
+    return !isDuplicateInDb;
+  });
+
   return {
     records: filtered,
-    duplicateInFile,
-    duplicateInDb: uniqueInFile.length - filtered.length,
+    duplicateInFile: duplicateInFileDetails.length,
+    duplicateInDb: duplicateInDbDetails.length,
+    duplicateInFileDetails,
+    duplicateInDbDetails,
     noIdentifier,
   };
 }
@@ -2873,8 +2933,117 @@ const duplicateInFileCount = document.getElementById("duplicateInFileCount");
 const duplicateInDbCount = document.getElementById("duplicateInDbCount");
 const duplicateTotalCount = document.getElementById("duplicateTotalCount");
 const newRecordCount = document.getElementById("newRecordCount");
+const duplicateOrderNumberSummary = document.getElementById("duplicateOrderNumberSummary");
+const duplicateDetailArea = document.getElementById("duplicateDetailArea");
+const copyDuplicateOrderNumbersBtn = document.getElementById("copyDuplicateOrderNumbersBtn");
 const cancelWholeUploadBtn = document.getElementById("cancelWholeUploadBtn");
 const uploadWithoutDuplicatesBtn = document.getElementById("uploadWithoutDuplicatesBtn");
+
+function duplicateIdentityKey(item){
+  return [item.orderNoSabangnet, item.orderNoMall].map(normalizeDedupeValue).join("¦");
+}
+
+function duplicateOrderNumberLabel(item){
+  const labels = [];
+  if(item.orderNoSabangnet) labels.push(`사방넷 ${item.orderNoSabangnet}`);
+  if(item.orderNoMall) labels.push(`쇼핑몰 ${item.orderNoMall}`);
+  return labels.join(" / ") || "주문번호 없음";
+}
+
+function groupDuplicateDetails(details){
+  const grouped = new Map();
+  (details || []).forEach(item => {
+    const key = [duplicateIdentityKey(item), normalizeDedupeValue(item.productName), normalizeDedupeValue(item.productColorCode), normalizeDedupeValue(item.optionCollected), normalizeDedupeValue(item.quantity)].join("¦");
+    if(!grouped.has(key)) grouped.set(key, { ...item, duplicateRowCount:0 });
+    grouped.get(key).duplicateRowCount += 1;
+  });
+  return [...grouped.values()];
+}
+
+function renderDuplicateGroup(title, details){
+  const grouped = groupDuplicateDetails(details);
+  if(!grouped.length) return "";
+
+  const uniqueOrderCount = new Set(grouped.map(duplicateIdentityKey)).size;
+  const rows = grouped.map(item => {
+    const productParts = [item.productName, item.productColorCode, item.optionCollected].filter(Boolean);
+    const productText = productParts.length ? productParts.join(" · ") : "상품 정보 없음";
+    const mallText = item.mall ? `쇼핑몰: ${item.mall}` : "";
+    const quantityText = item.quantity !== "" && item.quantity !== null && item.quantity !== undefined ? `수량 ${item.quantity}` : "";
+    const subText = [mallText, quantityText].filter(Boolean).join(" · ");
+    return `
+      <div class="duplicate-item">
+        <div class="duplicate-order-number">${escapeHtml(duplicateOrderNumberLabel(item))}${subText ? `<small>${escapeHtml(subText)}</small>` : ""}</div>
+        <div class="duplicate-product">${escapeHtml(productText)}</div>
+        <div class="duplicate-row-count">${item.duplicateRowCount.toLocaleString("ko-KR")}행 제외</div>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <details class="duplicate-group" open>
+      <summary><span>${escapeHtml(title)}</span><span>${uniqueOrderCount.toLocaleString("ko-KR")}개 주문번호 · ${details.length.toLocaleString("ko-KR")}행</span></summary>
+      <div class="duplicate-list">${rows}</div>
+    </details>
+  `;
+}
+
+function getUniqueDuplicateOrderNumbers(result){
+  const all = [...(result.duplicateInFileDetails || []), ...(result.duplicateInDbDetails || [])];
+  const seen = new Set();
+  const unique = [];
+  all.forEach(item => {
+    const key = duplicateIdentityKey(item);
+    if(seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+  return unique;
+}
+
+function renderDuplicateDetails(result){
+  const uniqueOrders = getUniqueDuplicateOrderNumbers(result);
+  duplicateOrderNumberSummary.textContent = `${uniqueOrders.length.toLocaleString("ko-KR")}개`;
+  copyDuplicateOrderNumbersBtn.disabled = uniqueOrders.length === 0;
+  duplicateDetailArea.innerHTML = [
+    renderDuplicateGroup("현재 파일 내부 중복", result.duplicateInFileDetails),
+    renderDuplicateGroup("기존 DB에 이미 등록된 중복", result.duplicateInDbDetails),
+  ].filter(Boolean).join("") || '<div class="duplicate-detail-empty">표시할 중복 주문번호가 없습니다.</div>';
+
+  copyDuplicateOrderNumbersBtn.onclick = async () => {
+    const header = "구분\t주문번호(사방넷)\t주문번호(쇼핑몰)";
+    const rows = uniqueOrders.map(item => {
+      const sources = [];
+      if((result.duplicateInFileDetails || []).some(detail => duplicateIdentityKey(detail) === duplicateIdentityKey(item))) sources.push("파일 내부");
+      if((result.duplicateInDbDetails || []).some(detail => duplicateIdentityKey(detail) === duplicateIdentityKey(item))) sources.push("기존 DB");
+      return [sources.join("+"), item.orderNoSabangnet, item.orderNoMall].map(cleanClipboardCell).join("\t");
+    });
+    try{
+      await writeClipboard([header, ...rows].join("\n"));
+      copyDuplicateOrderNumbersBtn.textContent = "복사 완료";
+      window.setTimeout(() => { copyDuplicateOrderNumbersBtn.textContent = "중복 주문번호 복사"; }, 1400);
+    }catch(err){
+      console.error("중복 주문번호 복사 오류:", err);
+      copyDuplicateOrderNumbersBtn.textContent = "복사 실패";
+      window.setTimeout(() => { copyDuplicateOrderNumbersBtn.textContent = "중복 주문번호 복사"; }, 1600);
+    }
+  };
+}
+
+function formatDuplicateOrderNumbersForLog(details, limit=10){
+  const labels = [];
+  const seen = new Set();
+  for(const item of details || []){
+    const key = duplicateIdentityKey(item);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    labels.push(duplicateOrderNumberLabel(item));
+  }
+  if(!labels.length) return "";
+  const visible = labels.slice(0, limit);
+  const suffix = labels.length > limit ? ` 외 ${(labels.length - limit).toLocaleString("ko-KR")}개` : "";
+  return `${visible.join(", ")}${suffix}`;
+}
 
 function askDuplicateUploadAction(result){
   return new Promise(resolve => {
@@ -2883,6 +3052,7 @@ function askDuplicateUploadAction(result){
     duplicateInDbCount.textContent = `${result.duplicateInDb.toLocaleString("ko-KR")}건`;
     duplicateTotalCount.textContent = `${duplicateTotal.toLocaleString("ko-KR")}건`;
     newRecordCount.textContent = `${result.records.length.toLocaleString("ko-KR")}건`;
+    renderDuplicateDetails(result);
     uploadWithoutDuplicatesBtn.disabled = result.records.length === 0;
     uploadWithoutDuplicatesBtn.textContent = result.records.length
       ? `중복 제외 후 ${result.records.length.toLocaleString("ko-KR")}건 업로드`
@@ -2892,6 +3062,7 @@ function askDuplicateUploadAction(result){
       duplicateModalBackdrop.classList.remove("open");
       cancelWholeUploadBtn.onclick = null;
       uploadWithoutDuplicatesBtn.onclick = null;
+      copyDuplicateOrderNumbersBtn.onclick = null;
       document.removeEventListener("keydown", onKeydown);
       resolve(action);
     };
@@ -3724,8 +3895,16 @@ uploadBtn.addEventListener("click", async () => {
         progressWrap.style.display = "none";
         return;
       }
-      if(dedupeResult.duplicateInFile) log(`ℹ 현재 파일 안의 중복 ${dedupeResult.duplicateInFile.toLocaleString("ko-KR")}건 제외`);
-      if(dedupeResult.duplicateInDb) log(`ℹ 이미 등록된 중복 ${dedupeResult.duplicateInDb.toLocaleString("ko-KR")}건 제외`);
+      if(dedupeResult.duplicateInFile){
+        log(`ℹ 현재 파일 안의 중복 ${dedupeResult.duplicateInFile.toLocaleString("ko-KR")}건 제외`);
+        const fileDuplicateNumbers = formatDuplicateOrderNumbersForLog(dedupeResult.duplicateInFileDetails);
+        if(fileDuplicateNumbers) log(`  ↳ 파일 내부 중복 주문번호: ${fileDuplicateNumbers}`);
+      }
+      if(dedupeResult.duplicateInDb){
+        log(`ℹ 이미 등록된 중복 ${dedupeResult.duplicateInDb.toLocaleString("ko-KR")}건 제외`);
+        const dbDuplicateNumbers = formatDuplicateOrderNumbersForLog(dedupeResult.duplicateInDbDetails);
+        if(dbDuplicateNumbers) log(`  ↳ 기존 DB 중복 주문번호: ${dbDuplicateNumbers}`);
+      }
     }
 
     records = dedupeResult.records;
