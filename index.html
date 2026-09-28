@@ -2120,8 +2120,11 @@ function buildOriginalMatrix(rows, batchMap){
     return out;
   });
 
-  // 3) 전체가 비어 있는 열은 제외
+  // 3) 표준 양식 열은 비어 있어도 항상 유지(복사·붙여넣기 시 열 위치 고정)
+  //    표준에 없는 추가 열만 전부 비어 있을 때 제외
+  const standardLabels = new Set(Object.values(STANDARD_LABEL_BY_KEY));
   const usedHeaders = headers.filter(h =>
+    standardLabels.has(h) ||
     normalizedRows.some(r => r[h] !== undefined && r[h] !== "")
   );
 
